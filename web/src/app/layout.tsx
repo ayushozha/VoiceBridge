@@ -16,6 +16,9 @@ export const metadata: Metadata = {
   title: "VoiceBridge — Northstar Insurance",
   description:
     "Business-deployed conversational access layer for high-stakes insurance phone workflows.",
+  icons: {
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
+  },
 };
 
 export default function RootLayout({

@@ -1,89 +1,88 @@
 import Link from "next/link";
 import { DEMO } from "@voicebridge/contracts";
+import { VoiceBridgeHeroScene } from "@/components/VoiceBridgeHeroScene";
 
 export default function Home() {
   return (
-    <main className="relative mx-auto flex min-h-screen max-w-3xl flex-col justify-center gap-12 px-6 py-20">
-      {/* Dot-grid background texture */}
+    <main className="relative min-h-[100dvh] overflow-hidden bg-[#f7fcff] text-[#112033]">
       <div
-        className="pointer-events-none absolute inset-0 opacity-[0.025]"
+        className="pointer-events-none absolute inset-0"
         style={{
-          backgroundImage:
-            "radial-gradient(circle, #4f8cff 1px, transparent 1px)",
-          backgroundSize: "28px 28px",
+          background:
+            "linear-gradient(135deg, #f7fcff 0%, #e9fbff 35%, #fff8e5 70%, #fff5fb 100%)",
         }}
       />
+      <div
+        className="pointer-events-none absolute inset-0 opacity-45"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(17,32,51,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(17,32,51,0.08) 1px, transparent 1px)",
+          backgroundSize: "42px 42px",
+          maskImage:
+            "linear-gradient(to bottom, rgba(0,0,0,0.72), rgba(0,0,0,0.28) 66%, transparent)",
+        }}
+      />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-[#38d6c5] via-[#6d8cff] to-[#ffbf3d]" />
 
-      <header className="relative space-y-4">
-        <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-vb-accent/25 bg-vb-accent/10 px-3 py-1">
-          <span className="inline-block h-1.5 w-1.5 animate-live rounded-full bg-vb-accent" />
-          <span className="text-xs font-semibold uppercase tracking-widest text-vb-accent">
-            {DEMO.tenantDisplayName}
-          </span>
-        </div>
-        <h1 className="text-5xl font-bold tracking-tight">
-          <span className="text-gradient">VoiceBridge</span>
-        </h1>
-        <p className="max-w-[42ch] text-lg leading-relaxed text-vb-muted">
-          Business-deployed conversational access layer for insurance and
-          financial-service phone workflows. Memory-aware, consent-gated, multilingual.
-        </p>
-      </header>
-
-      <nav className="relative grid gap-4 sm:grid-cols-2">
-        <Link
-          href="/console"
-          className="group rounded-2xl border border-vb-border bg-vb-surface p-6 transition-all duration-200 hover:border-vb-accent hover:glow-accent"
-        >
-          <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-vb-accent/15 text-vb-accent transition-colors group-hover:bg-vb-accent/25">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-            </svg>
-          </div>
-          <h2 className="mb-1.5 text-base font-semibold">
-            User Console
-            <span className="ml-1 text-vb-muted transition-colors group-hover:text-vb-accent">
-              →
+      <div className="relative mx-auto flex min-h-[100dvh] max-w-7xl flex-col px-5 py-5 sm:px-7 lg:px-9">
+        <nav className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/70 bg-white/70 shadow-[0_18px_45px_rgba(42,120,160,0.16),inset_0_1px_0_rgba(255,255,255,0.9)]">
+              <span className="h-3 w-3 rounded-full bg-[#38d6c5] shadow-[0_0_18px_rgba(56,214,197,0.9)]" />
             </span>
-          </h2>
-          <p className="text-sm leading-relaxed text-vb-muted">
-            Member-facing surface. Enter intent, approve disclosures, switch
-            language, correct tone — drive the whole call without speaking.
-          </p>
-        </Link>
-
-        <Link
-          href="/portal"
-          className="group rounded-2xl border border-vb-border bg-vb-surface p-6 transition-all duration-200 hover:border-vb-accent-2 hover:glow-approve"
-        >
-          <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-vb-accent-2/15 text-vb-accent-2 transition-colors group-hover:bg-vb-accent-2/25">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M9 21V9" />
-            </svg>
+            <div>
+              <p className="text-sm font-semibold text-[#112033]">VoiceBridge</p>
+              <p className="text-xs text-[#55687d]">{DEMO.tenantDisplayName}</p>
+            </div>
           </div>
-          <h2 className="mb-1.5 text-base font-semibold">
-            Insurer Portal
-            <span className="ml-1 text-vb-muted transition-colors group-hover:text-vb-accent-2">
-              →
-            </span>
-          </h2>
-          <p className="text-sm leading-relaxed text-vb-muted">
-            Northstar dashboard. Live call state, sponsor runtime trace, consent
-            events, audit log, and the outcome card.
-          </p>
-        </Link>
-      </nav>
 
-      <footer className="relative text-xs text-vb-muted">
-        Demo case{" "}
-        <code className="rounded bg-vb-surface-2 px-1.5 py-0.5 text-vb-text">
-          {DEMO.caseId}
-        </code>{" "}
-        · user{" "}
-        <code className="rounded bg-vb-surface-2 px-1.5 py-0.5 text-vb-text">
-          {DEMO.userDisplayName}
-        </code>
-      </footer>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/console"
+              className="rounded-lg border border-[#bbd2e4] bg-white/60 px-3 py-2 text-sm font-semibold text-[#31506d] shadow-[0_12px_30px_rgba(49,80,109,0.09)] transition duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-0.5 hover:border-[#6d8cff] hover:bg-white"
+            >
+              Console
+            </Link>
+            <Link
+              href="/portal"
+              className="rounded-lg border border-[#38d6c5]/[0.55] bg-[#38d6c5]/[0.18] px-3 py-2 text-sm font-semibold text-[#0e5360] shadow-[0_16px_36px_rgba(56,214,197,0.18)] transition duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-0.5 hover:border-[#ffbf3d] hover:bg-[#ffbf3d]/20"
+            >
+              Portal
+            </Link>
+          </div>
+        </nav>
+
+        <section className="grid flex-1 items-center gap-8 py-8 lg:grid-cols-[0.82fr_1.18fr] lg:py-12">
+          <div className="max-w-xl">
+            <div className="mb-5 inline-flex rounded-lg border border-[#c6dde8] bg-white/60 px-3 py-2 text-sm font-semibold text-[#0f7c86] shadow-[0_12px_35px_rgba(42,120,160,0.1)]">
+              Consent-aware voice layer
+            </div>
+            <h1 className="text-5xl font-bold leading-[1.02] text-[#112033] sm:text-7xl">
+              VoiceBridge
+            </h1>
+            <p className="mt-5 text-lg leading-8 text-[#52677d]">
+              Member voice becomes business action through a guarded AI bridge:
+              consent, memory, language, and audit move together.
+            </p>
+            <div className="mt-7 flex flex-wrap gap-3">
+              <Link
+                href="/portal"
+                className="rounded-lg border border-[#38d6c5]/60 bg-[#38d6c5]/[0.22] px-5 py-3 text-sm font-semibold text-[#0e5360] shadow-[0_22px_50px_rgba(56,214,197,0.22)] transition duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-1 hover:border-[#ffbf3d] hover:bg-[#ffbf3d]/20"
+              >
+                Open portal
+              </Link>
+              <Link
+                href="/console"
+                className="rounded-lg border border-[#b8cee0] bg-white/70 px-5 py-3 text-sm font-semibold text-[#31506d] shadow-[0_22px_50px_rgba(49,80,109,0.1)] transition duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-1 hover:border-[#6d8cff] hover:bg-white"
+              >
+                Open console
+              </Link>
+            </div>
+          </div>
+
+          <VoiceBridgeHeroScene />
+        </section>
+      </div>
     </main>
   );
 }
