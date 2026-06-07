@@ -1,4 +1,4 @@
-"""Environment + integration-mode resolution for the VoiceBridge agent.
+"""Environment + integration-mode resolution for the CommandOS agent.
 
 Loads the repo-root ``.env`` and reports which sponsor integrations are live vs
 stubbed, so the runtime trace can show the truth (per spec § Sponsor Integration
@@ -91,13 +91,13 @@ class Config:
 
 def load_config() -> Config:
     return Config(
-        tenant_id=os.getenv("DEMO_TENANT_ID", "northstar_insurance"),
+        tenant_id=os.getenv("DEMO_TENANT_ID", "atlaspay"),
         user_id=os.getenv("DEMO_USER_ID", "ayush_demo"),
-        case_id=os.getenv("DEMO_CASE_ID", "home_claim_H-48291"),
+        case_id=os.getenv("DEMO_CASE_ID", "sev1_tx_payments_2026_06_07"),
         livekit_url=_val("LIVEKIT_URL"),
         livekit_api_key=_val("LIVEKIT_API_KEY"),
         livekit_api_secret=_val("LIVEKIT_API_SECRET"),
-        room_name=os.getenv("VOICEBRIDGE_ROOM", "voicebridge-demo"),
+        room_name=os.getenv("COMMANDOS_ROOM", os.getenv("VOICEBRIDGE_ROOM", "commandos-demo")),
         sip_outbound_trunk_id=_val("LIVEKIT_SIP_OUTBOUND_TRUNK_ID"),
         demo_outbound_phone_number=_val("DEMO_OUTBOUND_PHONE_NUMBER"),
         elevenlabs_api_key=_val("ELEVENLABS_API_KEY"),

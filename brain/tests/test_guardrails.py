@@ -2,6 +2,7 @@ from voicebridge_contract import MemoryScope
 
 from voicebridge_brain.guardrails import (
     check_claim_decision,
+    check_dangerous_action,
     check_sensitive_disclosure,
     load_sensitive_fields,
 )
@@ -77,6 +78,42 @@ def test_claim_decision_guardrail_allows_safe_refusal() -> None:
     decision = check_claim_decision(
         MemoryScope(),
         "I cannot approve or deny claims, but I can summarize the documents requested.",
+    )
+
+    assert decision.decision == "allow"
+
+
+def test_dangerous_gateway_restart_blocks_without_queue_depth() -> None:
+    decision = check_dangerous_action(
+        MemoryScope(),
+        "restart payment gateway",
+        checks={"queue_depth_checked": False},
+        approval_confirmed=False,
+    )
+
+    assert decision.decision == "block"
+    assert decision.action == "restart_payment_gateway"
+    assert "queue depth" in decision.reason
+
+
+def test_dangerous_gateway_restart_requires_approval_after_queue_depth() -> None:
+    decision = check_dangerous_action(
+        MemoryScope(),
+        "restart payment gateway",
+        checks={"queue_depth_checked": True},
+        approval_confirmed=False,
+    )
+
+    assert decision.decision == "block"
+    assert "approval" in decision.reason
+
+
+def test_dangerous_gateway_restart_allows_after_checks_and_approval() -> None:
+    decision = check_dangerous_action(
+        MemoryScope(),
+        "restart payment gateway",
+        checks={"queue_depth_checked": True},
+        approval_confirmed=True,
     )
 
     assert decision.decision == "allow"

@@ -13,6 +13,7 @@
 
 /** LiveKit data-channel topic every VoiceBridge event is published under. */
 export const EVENT_TOPIC = "voicebridge.events" as const;
+export const COMMANDOS_EVENT_TOPIC = "commandos.events" as const;
 
 // ---------------------------------------------------------------------------
 // Demo identifiers (the one controlled insurance claim workflow)
@@ -29,6 +30,15 @@ export const DEMO = {
 } as const;
 
 export type LanguageCode = (typeof DEMO.languages)[number] | string;
+
+export const COMMANDOS_DEMO = {
+  tenantId: "atlaspay",
+  tenantDisplayName: "AtlasPay",
+  userId: "ayush_demo",
+  userDisplayName: "Ayush",
+  caseId: "sev1_tx_payments_2026_06_07",
+  incidentTitle: "Texas premium payment failures",
+} as const;
 
 // ---------------------------------------------------------------------------
 // Enums
@@ -90,6 +100,17 @@ export const EVENT_TYPES = [
   "call.started",
   "call.agent_joined",
   "call.audio_ready",
+  "incident.started",
+  "query.scoped",
+  "map.hotspots",
+  "topology.built",
+  "failure.localized",
+  "similar_incident.recalled",
+  "mitigation.proposed",
+  "approval.requested",
+  "dashboard.generated",
+  "report.created",
+  "scene.state",
   "memory.recalled",
   "knowledge.retrieved",
   "consent.requested",
@@ -117,6 +138,16 @@ export interface EventEnvelope<T extends EventType, P> {
   case_id: string;
   /** ISO-8601 UTC timestamp. */
   timestamp: string;
+  /** Stable per-event ID for replay/dedupe; backend should set this. */
+  event_id?: string;
+  /** Monotonic sequence within a backend-generated stream. */
+  sequence?: number;
+  /** Conversational turn this event belongs to. */
+  turn_id?: string;
+  /** Correlates tool calls, guardrails, and scene changes. */
+  correlation_id?: string;
+  /** Whether this event came from a live integration, stub, or unavailable path. */
+  mode?: IntegrationMode;
   payload: P;
 }
 
@@ -138,6 +169,139 @@ export interface CallAudioReadyPayload {
   /** Round-trip self-check: agent can hear input and produce output. */
   mic_active: boolean;
   audio_out_active: boolean;
+}
+
+export interface IncidentStartedPayload {
+  incident_id: string;
+  title: string;
+  severity: "SEV-1" | "SEV-2" | "SEV-3" | string;
+  status: "investigating" | "mitigating" | "resolved" | string;
+  operator_prompt: string;
+}
+
+export interface QueryScopedPayload {
+  window: string;
+  segment: string;
+  clarification: string;
+  scope_chips: string[];
+}
+
+export interface IncidentCityHotspot {
+  city: string;
+  lat: number;
+  lng: number;
+  failure_rate: number;
+  failed_transactions: number;
+  note: string;
+  color: "red" | "amber" | "green" | string;
+}
+
+export interface MapHotspotsPayload {
+  region: string;
+  baseline_failure_rate: number;
+  current_failure_rate: number;
+  affected_segment: string;
+  hotspots: IncidentCityHotspot[];
+  frontend: {
+    scene: "failure_map";
+    camera_target: string;
+    animation: string;
+  };
+}
+
+export interface TopologyNode {
+  id: string;
+  label: string;
+  layer: "client" | "api" | "gateway" | "processor" | "bank" | string;
+  status: "healthy" | "degraded" | "failing" | "proposed" | string;
+}
+
+export interface TopologyEdge {
+  from: string;
+  to: string;
+  status: "healthy" | "degraded" | "failing" | "proposed" | string;
+  traffic_percent?: number;
+}
+
+export interface TopologyBuiltPayload {
+  nodes: TopologyNode[];
+  edges: TopologyEdge[];
+  frontend: {
+    scene: "payment_topology";
+    highlight_node: string;
+    animation: string;
+  };
+}
+
+export interface FailureLocalizedPayload {
+  suspected_failure_point: string;
+  hypothesis: string;
+  confidence: number;
+  not_likely: string[];
+  evidence: string[];
+}
+
+export interface SimilarIncidentRecalledPayload {
+  source: "moss" | "local";
+  similarity: number;
+  incident_id: string;
+  title: string;
+  what_happened: string;
+  bad_action: string;
+  successful_action: string;
+  owner: string;
+  frontend: {
+    scene: "prior_incident_overlay";
+    overlay: string;
+  };
+}
+
+export interface MitigationProposedPayload {
+  sequence: string[];
+  architecture: {
+    add_nodes: TopologyNode[];
+    add_edges: TopologyEdge[];
+    reroute: string;
+  };
+  expected_result: string;
+  frontend: {
+    scene: "mitigation_morph";
+    animation: string;
+  };
+}
+
+export interface ApprovalRequestedPayload {
+  action: string;
+  status: "blocked" | "pending_approval" | "approved" | string;
+  risk: string[];
+  required_checks: string[];
+  approver: string;
+  prior_incident_warning: boolean;
+}
+
+export interface DashboardGeneratedPayload {
+  dashboard_id: string;
+  sections: string[];
+  source_event_count: number;
+  frontend: {
+    scene: "dashboard";
+    transition: string;
+  };
+}
+
+export interface ReportCreatedPayload {
+  report_id: string;
+  title: string;
+  root_cause_hypothesis: string;
+  recommended_mitigation: string[];
+  customer_update: string;
+  postmortem_skeleton: string[];
+}
+
+export interface SceneStatePayload {
+  state: "idle" | "listening" | "thinking" | "building" | "speaking" | string;
+  visual: string;
+  caption: string;
 }
 
 export interface MemoryRecalledPayload {
@@ -211,15 +375,19 @@ export interface MemoryWrittenPayload {
 }
 
 export interface OutcomeCreatedPayload {
-  claim_status: string;
+  claim_status?: string;
   claim_number?: string;
-  missing_documents: string[];
+  missing_documents?: string[];
   deadline?: string;
-  sensitive_info_shared: SensitiveField[];
+  sensitive_info_shared?: SensitiveField[];
   approvals: string[];
   language_switch?: { from: LanguageCode; to: LanguageCode };
   preference_learned?: string;
   follow_up?: string;
+  incident_status?: string;
+  root_cause_hypothesis?: string;
+  blocked_actions?: string[];
+  customer_update?: string;
 }
 
 export interface AuditSavedPayload {
@@ -259,6 +427,17 @@ export type VoiceBridgeEvent =
   | EventEnvelope<"call.started", CallStartedPayload>
   | EventEnvelope<"call.agent_joined", CallAgentJoinedPayload>
   | EventEnvelope<"call.audio_ready", CallAudioReadyPayload>
+  | EventEnvelope<"incident.started", IncidentStartedPayload>
+  | EventEnvelope<"query.scoped", QueryScopedPayload>
+  | EventEnvelope<"map.hotspots", MapHotspotsPayload>
+  | EventEnvelope<"topology.built", TopologyBuiltPayload>
+  | EventEnvelope<"failure.localized", FailureLocalizedPayload>
+  | EventEnvelope<"similar_incident.recalled", SimilarIncidentRecalledPayload>
+  | EventEnvelope<"mitigation.proposed", MitigationProposedPayload>
+  | EventEnvelope<"approval.requested", ApprovalRequestedPayload>
+  | EventEnvelope<"dashboard.generated", DashboardGeneratedPayload>
+  | EventEnvelope<"report.created", ReportCreatedPayload>
+  | EventEnvelope<"scene.state", SceneStatePayload>
   | EventEnvelope<"memory.recalled", MemoryRecalledPayload>
   | EventEnvelope<"knowledge.retrieved", KnowledgeRetrievedPayload>
   | EventEnvelope<"consent.requested", ConsentRequestedPayload>
@@ -281,6 +460,17 @@ export interface EventPayloadMap {
   "call.started": CallStartedPayload;
   "call.agent_joined": CallAgentJoinedPayload;
   "call.audio_ready": CallAudioReadyPayload;
+  "incident.started": IncidentStartedPayload;
+  "query.scoped": QueryScopedPayload;
+  "map.hotspots": MapHotspotsPayload;
+  "topology.built": TopologyBuiltPayload;
+  "failure.localized": FailureLocalizedPayload;
+  "similar_incident.recalled": SimilarIncidentRecalledPayload;
+  "mitigation.proposed": MitigationProposedPayload;
+  "approval.requested": ApprovalRequestedPayload;
+  "dashboard.generated": DashboardGeneratedPayload;
+  "report.created": ReportCreatedPayload;
+  "scene.state": SceneStatePayload;
   "memory.recalled": MemoryRecalledPayload;
   "knowledge.retrieved": KnowledgeRetrievedPayload;
   "consent.requested": ConsentRequestedPayload;
@@ -312,6 +502,14 @@ export const AGENT_TOOLS = [
   "route_guarded_model_call",
   "detect_language_switch",
   "speak_response",
+  "inspect_payment_failures",
+  "build_spatial_failure_model",
+  "recall_similar_incidents",
+  "retrieve_runbook_policy",
+  "propose_mitigation",
+  "check_action_guardrail",
+  "prepare_approval_request",
+  "generate_incident_dashboard",
 ] as const;
 export type AgentToolName = (typeof AGENT_TOOLS)[number];
 
@@ -349,6 +547,12 @@ export function makeEvent<T extends EventType>(
   payload: EventPayloadMap[T],
   scope: Partial<MemoryScope> = {},
   timestamp?: string,
+  metadata: Partial<
+    Pick<
+      EventEnvelope<T, EventPayloadMap[T]>,
+      "event_id" | "sequence" | "turn_id" | "correlation_id" | "mode"
+    >
+  > = {},
 ): EventEnvelope<T, EventPayloadMap[T]> {
   return {
     type,
@@ -356,6 +560,7 @@ export function makeEvent<T extends EventType>(
     user_id: scope.user_id ?? DEMO.userId,
     case_id: scope.case_id ?? DEMO.caseId,
     timestamp: timestamp ?? new Date().toISOString(),
+    ...metadata,
     payload,
   };
 }

@@ -35,23 +35,25 @@ class _FakeSession:
 async def test_publish_brain_events_uses_livekit_event_topic() -> None:
     room = _FakeRoom()
     scope = MemoryScope(
-        tenant_id="northstar_insurance",
+        tenant_id="atlaspay",
         user_id="ayush_demo",
-        case_id="home_claim_H-48291",
+        case_id="sev1_tx_payments_2026_06_07",
     )
 
     events = await _publish_brain_events(room, scope)
     decoded = [decode_event(packet[0]) for packet in room.local_participant.packets]
 
-    assert len(events) == 19
+    assert len(events) == 40
     assert len(decoded) == len(events)
     assert all(packet[1] is True for packet in room.local_participant.packets)
     assert {packet[2] for packet in room.local_participant.packets} == {EVENT_TOPIC}
     assert [event.type for event in decoded if event is not None][:3] == [
+        "scene.state",
         "user.intent",
-        "memory.recalled",
-        "knowledge.retrieved",
+        "incident.started",
     ]
+    assert any(event.type == "map.hotspots" for event in decoded if event is not None)
+    assert any(event.type == "guardrail.checked" for event in decoded if event is not None)
 
 
 async def test_say_and_publish_voice_emits_voice_spoken_event() -> None:

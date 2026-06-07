@@ -1,4 +1,4 @@
-"""VoiceBridge agent worker entrypoint (Agent 1: call infrastructure).
+"""CommandOS/VoiceBridge agent worker entrypoint (Agent 1: voice infrastructure).
 
 Joins the LiveKit room as the VoiceBridge agent and runs an STT-LLM-TTS voice
 pipeline (LiveKit Agents 1.5.x ``AgentServer`` / ``AgentSession``). On every job
@@ -68,40 +68,37 @@ INFERENCE_STT_MODEL = "deepgram/nova-3"
 INFERENCE_LLM_MODEL = "openai/gpt-4o-mini"
 INFERENCE_TTS_MODEL = "cartesia/sonic-2"
 
-AGENT_IDENTITY = "voicebridge_agent"
+AGENT_IDENTITY = "commandos_agent"
 
 INSTRUCTIONS = textwrap.dedent(
     """\
-    You are VoiceBridge, a business-deployed conversational access layer speaking
-    on behalf of a member during an insurance phone call. You speak for the user
-    only within their confirmed intent.
+    You are CommandOS, a voice operating system for live business incidents.
+    You talk with the operator, ask crisp follow-up questions, and build the
+    incident workspace through backend events.
 
     # Output rules (this is a voice channel)
     - Plain speech only. No markdown, lists, JSON, emojis, or symbols.
     - Keep it short and direct: one to two sentences. Calm, clear, unhurried.
-    - Spell out claim numbers and identifiers clearly when sharing is approved.
+    - Prefer operational certainty over dramatic phrasing.
 
     # Hard guardrails (never violate)
-    - Never speak a sensitive field (claim number, policy ID, address, date of
-      loss, phone number, account number, payment details) until the user has
-      explicitly approved that specific disclosure.
-    - Never approve, deny, or interpret a claim. Never give medical, legal, or
-      financial advice. Never move money or change credentials.
-    - You express user intent, ask the representative questions, and summarize
-      what the representative says. Nothing more.
+    - Never imply you executed infrastructure actions unless a real adapter did it.
+    - Never recommend restarting the payment gateway until queue depth is checked
+      and human approval is confirmed.
+    - If an action is risky, explain the missing precondition and offer the next
+      safe step.
 
     # Flow
-    - Greet briefly and state the member is asking about their home claim.
-    - When the representative asks for a sensitive field, pause and let the user
-      approve before you say it.
-    - If the user switches language mid-call, keep the same claim context and
-      continue in the new language.
+    - Start from the operator's question.
+    - Ask for the missing scope before building the incident model.
+    - Use prior incident memory to change recommendations.
+    - Convert the final event log into a dashboard and report.
     """
 )
 
 
 class VoiceBridgeAgent(Agent):
-    """The in-room VoiceBridge agent. Conversation tools are attached by the brain."""
+    """The in-room CommandOS agent. Conversation tools are attached by the brain."""
 
     def __init__(self, llm: LLMBase | None = None) -> None:
         kwargs: dict[str, Any] = {"instructions": INSTRUCTIONS}
@@ -195,9 +192,9 @@ def _build_tts(selection: VoiceSelection) -> TTSBase | str:
 
 async def _publish_brain_events(room: Any, scope: MemoryScope) -> list[Event]:
     """Run the deterministic brain and publish its events into the live room."""
-    from voicebridge_brain.orchestrator import DemoOrchestrator
+    from voicebridge_brain.commandos import CommandOSOrchestrator
 
-    events = DemoOrchestrator().run(scope=scope)
+    events = CommandOSOrchestrator().run(scope=scope)
     for event in events:
         await publish_existing_event(room, event)
     logger.info("Published %s brain events to LiveKit topic", len(events))
@@ -236,10 +233,10 @@ def smoke_check() -> None:
     """Validate config and import surfaces without starting a worker."""
     cfg = load_config()
     selection = _select_voice(cfg)
-    from voicebridge_brain.orchestrator import DemoOrchestrator
+    from voicebridge_brain.commandos import CommandOSOrchestrator
 
     scope = MemoryScope(tenant_id=cfg.tenant_id, user_id=cfg.user_id, case_id=cfg.case_id)
-    event_count = len(DemoOrchestrator().run(scope=scope))
+    event_count = len(CommandOSOrchestrator().run(scope=scope))
     _startup_log(
         "smoke ok | "
         f"livekit={cfg.has_livekit} elevenlabs={cfg.has_elevenlabs} "
@@ -257,7 +254,7 @@ server = AgentServer()
 server.setup_fnc = prewarm
 
 
-@server.rtc_session(agent_name="voicebridge")
+@server.rtc_session(agent_name="commandos")
 async def entrypoint(ctx: JobContext) -> None:
     """Per-call entrypoint: join the room, wire the pipeline, emit call.* events."""
     cfg = load_config()
@@ -267,7 +264,7 @@ async def entrypoint(ctx: JobContext) -> None:
 
     _startup_log(f"job accepted room={ctx.room.name} case_id={cfg.case_id}")
     logger.info(
-        "VoiceBridge agent joining room=%s (nvidia=%s elevenlabs=%s minimax=%s qwen=%s)",
+        "CommandOS agent joining room=%s (nvidia=%s elevenlabs=%s minimax=%s qwen=%s)",
         ctx.room.name,
         cfg.has_nvidia,
         cfg.has_elevenlabs,
@@ -359,7 +356,7 @@ def main() -> None:
         f"minimax={cfg.has_minimax} qwen={cfg.has_qwen} nvidia={cfg.has_nvidia}"
     )
     logger.info(
-        "VoiceBridge agent config: livekit=%s elevenlabs=%s minimax=%s qwen=%s nvidia=%s",
+        "CommandOS agent config: livekit=%s elevenlabs=%s minimax=%s qwen=%s nvidia=%s",
         cfg.has_livekit,
         cfg.has_elevenlabs,
         cfg.has_minimax,

@@ -54,6 +54,13 @@ _SAFE_REFUSAL_PATTERNS = (
     "unable to approve or deny",
     "do not approve or deny",
 )
+_DANGEROUS_ACTION_ALIASES = {
+    "restartgateway": "restart_payment_gateway",
+    "restartpaymentgateway": "restart_payment_gateway",
+    "restart_payment_gateway": "restart_payment_gateway",
+    "restartthepaymentgateway": "restart_payment_gateway",
+    "gatewayrestart": "restart_payment_gateway",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,6 +115,14 @@ class TrueFoundryGuardrailAdapter(Protocol):
         self,
         scope: MemoryScope,
         proposed_text: str,
+    ) -> GuardrailDecision: ...
+
+    def check_dangerous_action(
+        self,
+        scope: MemoryScope,
+        action: str,
+        checks: dict[str, bool],
+        approval_confirmed: bool,
     ) -> GuardrailDecision: ...
 
 
@@ -196,6 +211,44 @@ class LocalTrueFoundryGuardrailAdapter:
             reason="response does not approve or deny a claim",
         )
 
+    def check_dangerous_action(
+        self,
+        scope: MemoryScope,
+        action: str,
+        checks: dict[str, bool],
+        approval_confirmed: bool,
+    ) -> GuardrailDecision:
+        del scope
+        normalized_action = normalize_action(action)
+        queue_depth_checked = bool(checks.get("queue_depth_checked"))
+
+        if normalized_action != "restart_payment_gateway":
+            return self._decision(
+                action=normalized_action,
+                decision="allow",
+                reason=f"{normalized_action} is not listed as a dangerous demo action",
+            )
+
+        if not queue_depth_checked:
+            return self._decision(
+                action=normalized_action,
+                decision="block",
+                reason="queue depth must be checked before restarting the payment gateway",
+            )
+
+        if not approval_confirmed:
+            return self._decision(
+                action=normalized_action,
+                decision="block",
+                reason="human approval is required before controlled gateway restart",
+            )
+
+        return self._decision(
+            action=normalized_action,
+            decision="allow",
+            reason="queue depth check and human approval are complete",
+        )
+
     def _decision(
         self,
         *,
@@ -248,6 +301,18 @@ def check_claim_decision(
     return checker.check_claim_decision(scope, proposed_text)
 
 
+def check_dangerous_action(
+    scope: MemoryScope,
+    action: str,
+    checks: dict[str, bool] | None = None,
+    approval_confirmed: bool = False,
+    adapter: TrueFoundryGuardrailAdapter | None = None,
+) -> GuardrailDecision:
+    """Block risky ops actions until required checks and approval are present."""
+    checker = adapter or DEFAULT_ADAPTER
+    return checker.check_dangerous_action(scope, action, checks or {}, approval_confirmed)
+
+
 def load_sensitive_fields() -> set[str]:
     """Load sensitive fields from the canonical events contract with a mirror fallback."""
     contract_path = Path(__file__).resolve().parents[2] / "contracts" / "events.json"
@@ -264,6 +329,11 @@ def load_sensitive_fields() -> set[str]:
 def normalize_field(field: str) -> str:
     compact = re.sub(r"[^a-zA-Z0-9_]", "", field).lower()
     return _FIELD_ALIASES.get(compact, compact)
+
+
+def normalize_action(action: str) -> str:
+    compact = re.sub(r"[^a-zA-Z0-9_]", "", action).lower()
+    return _DANGEROUS_ACTION_ALIASES.get(compact, compact)
 
 
 def parse_consent_state(consent_state: Any, field: str) -> _ConsentCheck:

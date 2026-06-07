@@ -12,12 +12,14 @@ import json
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Literal
+from uuid import uuid4
 
 # ---------------------------------------------------------------------------
 # Transport
 # ---------------------------------------------------------------------------
 
 EVENT_TOPIC = "voicebridge.events"
+COMMANDOS_EVENT_TOPIC = "commandos.events"
 
 # ---------------------------------------------------------------------------
 # Demo identifiers (the one controlled insurance claim workflow)
@@ -30,6 +32,17 @@ DEMO_USER_DISPLAY_NAME = "Ayush"
 DEMO_CASE_ID = "home_claim_H-48291"
 DEMO_CLAIM_NUMBER = "H-48291"
 DEMO_LANGUAGES = ("en", "es")
+
+# ---------------------------------------------------------------------------
+# CommandOS demo identifiers (the controlled fintech incident workflow)
+# ---------------------------------------------------------------------------
+
+COMMANDOS_TENANT_ID = "atlaspay"
+COMMANDOS_TENANT_DISPLAY_NAME = "AtlasPay"
+COMMANDOS_USER_ID = "ayush_demo"
+COMMANDOS_USER_DISPLAY_NAME = "Ayush"
+COMMANDOS_CASE_ID = "sev1_tx_payments_2026_06_07"
+COMMANDOS_INCIDENT_TITLE = "Texas premium payment failures"
 
 # ---------------------------------------------------------------------------
 # Enums (kept as tuples + Literals so both runtime checks and typing work)
@@ -98,6 +111,17 @@ EVENT_TYPES = (
     "call.started",
     "call.agent_joined",
     "call.audio_ready",
+    "incident.started",
+    "query.scoped",
+    "map.hotspots",
+    "topology.built",
+    "failure.localized",
+    "similar_incident.recalled",
+    "mitigation.proposed",
+    "approval.requested",
+    "dashboard.generated",
+    "report.created",
+    "scene.state",
     "memory.recalled",
     "knowledge.retrieved",
     "consent.requested",
@@ -119,6 +143,17 @@ EventType = Literal[
     "call.started",
     "call.agent_joined",
     "call.audio_ready",
+    "incident.started",
+    "query.scoped",
+    "map.hotspots",
+    "topology.built",
+    "failure.localized",
+    "similar_incident.recalled",
+    "mitigation.proposed",
+    "approval.requested",
+    "dashboard.generated",
+    "report.created",
+    "scene.state",
     "memory.recalled",
     "knowledge.retrieved",
     "consent.requested",
@@ -150,6 +185,14 @@ AGENT_TOOLS = (
     "route_guarded_model_call",
     "detect_language_switch",
     "speak_response",
+    "inspect_payment_failures",
+    "build_spatial_failure_model",
+    "recall_similar_incidents",
+    "retrieve_runbook_policy",
+    "propose_mitigation",
+    "check_action_guardrail",
+    "prepare_approval_request",
+    "generate_incident_dashboard",
 )
 AgentToolName = Literal[
     "search_business_knowledge",
@@ -160,6 +203,14 @@ AgentToolName = Literal[
     "route_guarded_model_call",
     "detect_language_switch",
     "speak_response",
+    "inspect_payment_failures",
+    "build_spatial_failure_model",
+    "recall_similar_incidents",
+    "retrieve_runbook_policy",
+    "propose_mitigation",
+    "check_action_guardrail",
+    "prepare_approval_request",
+    "generate_incident_dashboard",
 ]
 
 
@@ -184,6 +235,11 @@ def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def new_event_id() -> str:
+    """Stable shape for event IDs; orchestrators can override for replay tests."""
+    return f"evt_{uuid4().hex}"
+
+
 @dataclass(slots=True)
 class Event:
     """A VoiceBridge event envelope.
@@ -199,6 +255,11 @@ class Event:
     user_id: str = DEMO_USER_ID
     case_id: str = DEMO_CASE_ID
     timestamp: str = field(default_factory=utc_now_iso)
+    event_id: str = field(default_factory=new_event_id)
+    sequence: int | None = None
+    turn_id: str | None = None
+    correlation_id: str | None = None
+    mode: IntegrationMode | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -213,6 +274,11 @@ def make_event(
     payload: dict[str, Any] | None = None,
     scope: MemoryScope | None = None,
     timestamp: str | None = None,
+    event_id: str | None = None,
+    sequence: int | None = None,
+    turn_id: str | None = None,
+    correlation_id: str | None = None,
+    mode: IntegrationMode | None = None,
 ) -> Event:
     s = scope or MemoryScope()
     return Event(
@@ -222,6 +288,11 @@ def make_event(
         user_id=s.user_id,
         case_id=s.case_id,
         timestamp=timestamp or utc_now_iso(),
+        event_id=event_id or new_event_id(),
+        sequence=sequence,
+        turn_id=turn_id,
+        correlation_id=correlation_id,
+        mode=mode,
     )
 
 
@@ -253,4 +324,13 @@ def decode_event(data: bytes | str) -> Event | None:
         user_id=parsed["user_id"],
         case_id=parsed["case_id"],
         timestamp=parsed["timestamp"],
+        event_id=parsed.get("event_id") or new_event_id(),
+        sequence=parsed.get("sequence") if isinstance(parsed.get("sequence"), int) else None,
+        turn_id=parsed.get("turn_id") if isinstance(parsed.get("turn_id"), str) else None,
+        correlation_id=(
+            parsed.get("correlation_id")
+            if isinstance(parsed.get("correlation_id"), str)
+            else None
+        ),
+        mode=parsed.get("mode") if parsed.get("mode") in {"live", "stub", "unavailable"} else None,
     )
