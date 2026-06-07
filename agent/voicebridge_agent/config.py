@@ -63,6 +63,11 @@ class Config:
     qwen_api_key: str | None  # DASHSCOPE_API_KEY
     qwen_model: str
     nvidia_api_key: str | None
+    model_fallback_api_key: str | None
+    model_fallback_base_url: str
+    model_fallback_text_model: str
+    model_fallback_realtime_model: str
+    model_fallback_translation_model: str
 
     # Sponsor memory, docs, governance, and audit paths
     moss_project_id: str | None
@@ -110,6 +115,10 @@ class Config:
         return bool(self.nvidia_api_key)
 
     @property
+    def has_model_fallback(self) -> bool:
+        return bool(self.model_fallback_api_key)
+
+    @property
     def has_moss_credentials(self) -> bool:
         return bool(self.moss_project_id and self.moss_project_key)
 
@@ -154,6 +163,20 @@ def load_config() -> Config:
         qwen_api_key=_val("DASHSCOPE_API_KEY"),
         qwen_model=os.getenv("QWEN_MODEL", "qwen-plus"),
         nvidia_api_key=_val("NVIDIA_NEMOTRON_VOICECHAT_API_KEY"),
+        model_fallback_api_key=_val("COMMANDOS_MODEL_FALLBACK_API_KEY"),
+        model_fallback_base_url=os.getenv(
+            "COMMANDOS_MODEL_FALLBACK_BASE_URL",
+            "https://api.openai.com/v1",
+        ),
+        model_fallback_text_model=os.getenv("COMMANDOS_MODEL_FALLBACK_TEXT_MODEL", "gpt-5.5"),
+        model_fallback_realtime_model=os.getenv(
+            "COMMANDOS_MODEL_FALLBACK_REALTIME_MODEL",
+            "gpt-realtime-2",
+        ),
+        model_fallback_translation_model=os.getenv(
+            "COMMANDOS_MODEL_FALLBACK_TRANSLATION_MODEL",
+            "gpt-realtime-translate",
+        ),
         moss_project_id=_val("MOSS_PROJECT_ID"),
         moss_project_key=_val("MOSS_PROJECT_KEY"),
         moss_index_name=os.getenv("MOSS_INDEX_NAME", "voicebridge_business_knowledge"),

@@ -30,6 +30,11 @@ def cfg(**overrides: object) -> Config:
         "qwen_api_key": None,
         "qwen_model": "qwen-plus",
         "nvidia_api_key": None,
+        "model_fallback_api_key": None,
+        "model_fallback_base_url": "https://api.openai.com/v1",
+        "model_fallback_text_model": "gpt-5.5",
+        "model_fallback_realtime_model": "gpt-realtime-2",
+        "model_fallback_translation_model": "gpt-realtime-translate",
         "moss_project_id": None,
         "moss_project_key": None,
         "moss_index_name": "voicebridge_business_knowledge",
@@ -80,8 +85,21 @@ async def test_probe_env_reports_provider_presence_without_secret_values() -> No
     assert result.metadata["livekit"] is True
     assert result.metadata["moss_credentials"] is True
     assert result.metadata["moss_sdk"] is True
+    assert result.metadata["model_fallback"] is False
     assert result.metadata["payment_telemetry"] is False
     assert "lk-key" not in str(result.to_dict())
+
+
+def test_strict_failures_accepts_private_model_substitutes() -> None:
+    results = [
+        ProbeResult("qwen", "blocked", False, True, "missing"),
+        ProbeResult("nvidia", "failed", False, True, "bad key"),
+        ProbeResult("minimax", "failed", False, True, "balance"),
+        ProbeResult("model_fallback", "ok", True, True, "ready"),
+        ProbeResult("realtime_fallback", "ok", True, True, "ready"),
+    ]
+
+    assert strict_failures(results) == []
 
 
 async def test_commandos_flow_probe_fails_when_stub_events_remain() -> None:

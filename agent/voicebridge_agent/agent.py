@@ -108,10 +108,19 @@ class VoiceBridgeAgent(Agent):
 
 
 def _build_llm(cfg: Config) -> LLMBase | str:
-    """Pick the LLM: NVIDIA Nemotron (OpenAI-compatible) if keyed, else Inference.
+    """Pick the LLM: private model fallback, NVIDIA Nemotron, then Inference.
 
     Returns either a constructed ``llm.LLM`` or a LiveKit Inference model string.
     """
+    if cfg.has_model_fallback:
+        from livekit.plugins import openai
+
+        logger.info("LLM: private model fallback (%s)", cfg.model_fallback_text_model)
+        return openai.LLM(
+            model=cfg.model_fallback_text_model,
+            base_url=cfg.model_fallback_base_url,
+            api_key=cfg.model_fallback_api_key,
+        )
     if cfg.has_nvidia:
         from livekit.plugins import openai
 
@@ -241,6 +250,7 @@ def smoke_check() -> None:
         "smoke ok | "
         f"livekit={cfg.has_livekit} elevenlabs={cfg.has_elevenlabs} "
         f"minimax={cfg.has_minimax} qwen={cfg.has_qwen} nvidia={cfg.has_nvidia} "
+        f"model_fallback={cfg.has_model_fallback} "
         f"voice={selection.provider} brain_events={event_count}"
     )
 
@@ -264,12 +274,14 @@ async def entrypoint(ctx: JobContext) -> None:
 
     _startup_log(f"job accepted room={ctx.room.name} case_id={cfg.case_id}")
     logger.info(
-        "CommandOS agent joining room=%s (nvidia=%s elevenlabs=%s minimax=%s qwen=%s)",
+        "CommandOS agent joining room=%s "
+        "(nvidia=%s elevenlabs=%s minimax=%s qwen=%s model_fallback=%s)",
         ctx.room.name,
         cfg.has_nvidia,
         cfg.has_elevenlabs,
         cfg.has_minimax,
         cfg.has_qwen,
+        cfg.has_model_fallback,
     )
 
     # Connect first so we can publish call.started before the session starts.
@@ -353,15 +365,18 @@ def main() -> None:
     _startup_log(
         "config loaded | "
         f"livekit={cfg.has_livekit} elevenlabs={cfg.has_elevenlabs} "
-        f"minimax={cfg.has_minimax} qwen={cfg.has_qwen} nvidia={cfg.has_nvidia}"
+        f"minimax={cfg.has_minimax} qwen={cfg.has_qwen} nvidia={cfg.has_nvidia} "
+        f"model_fallback={cfg.has_model_fallback}"
     )
     logger.info(
-        "CommandOS agent config: livekit=%s elevenlabs=%s minimax=%s qwen=%s nvidia=%s",
+        "CommandOS agent config: livekit=%s elevenlabs=%s minimax=%s qwen=%s "
+        "nvidia=%s model_fallback=%s",
         cfg.has_livekit,
         cfg.has_elevenlabs,
         cfg.has_minimax,
         cfg.has_qwen,
         cfg.has_nvidia,
+        cfg.has_model_fallback,
     )
     if not cfg.has_livekit:
         raise SystemExit(

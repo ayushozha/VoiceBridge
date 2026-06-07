@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import json
 import time
 from collections.abc import Awaitable, Callable, Sequence
@@ -32,12 +33,21 @@ _REQUIRED_PROBES = {
     "minimax",
     "nvidia",
     "qwen",
+    "model_fallback",
+    "realtime_fallback",
+    "translation_fallback",
     "unsiloed",
     "moss",
     "truefoundry",
     "aws",
     "payment_telemetry",
     "commandos_flow",
+}
+
+_FALLBACK_SUBSTITUTES = {
+    "minimax": {"realtime_fallback"},
+    "nvidia": {"model_fallback"},
+    "qwen": {"model_fallback", "translation_fallback"},
 }
 
 
@@ -77,6 +87,9 @@ async def run_live_readiness(
         ("minimax", _probe_minimax),
         ("nvidia", _probe_nvidia),
         ("qwen", _probe_qwen),
+        ("model_fallback", _probe_model_fallback),
+        ("realtime_fallback", _probe_realtime_fallback),
+        ("translation_fallback", _probe_translation_fallback),
         ("unsiloed", _probe_unsiloed),
         ("moss", _probe_moss),
         ("truefoundry", _probe_truefoundry),
@@ -93,7 +106,19 @@ async def run_live_readiness(
 def strict_failures(results: Sequence[ProbeResult]) -> list[ProbeResult]:
     """Return required probes that are not live and ok."""
 
-    return [result for result in results if result.required and not result.live]
+    live_by_name = {
+        result.name: result.live and result.status == "ok"
+        for result in results
+    }
+    failures: list[ProbeResult] = []
+    for result in results:
+        if not result.required or result.live:
+            continue
+        substitutes = _FALLBACK_SUBSTITUTES.get(result.name, set())
+        if any(live_by_name.get(name) for name in substitutes):
+            continue
+        failures.append(result)
+    return failures
 
 
 async def _timed(
@@ -134,6 +159,7 @@ async def _probe_env(cfg: Config, required: bool) -> ProbeResult:
         "minimax": cfg.has_minimax,
         "nvidia": cfg.has_nvidia,
         "qwen": cfg.has_qwen,
+        "model_fallback": cfg.has_model_fallback,
         "moss_credentials": cfg.has_moss_credentials,
         "moss_sdk": cfg.has_moss_live,
         "unsiloed": cfg.has_unsiloed,
@@ -278,6 +304,122 @@ async def _probe_qwen(cfg: Config, required: bool) -> ProbeResult:
         model=cfg.qwen_model,
         detail="Completed a real Qwen/DashScope chat completion.",
     )
+
+
+async def _probe_model_fallback(cfg: Config, required: bool) -> ProbeResult:
+    if not cfg.has_model_fallback:
+        return _blocked(
+            "model_fallback",
+            required,
+            "Missing COMMANDOS_MODEL_FALLBACK_API_KEY.",
+        )
+
+    async def _run() -> ProbeResult:
+        from openai import AsyncOpenAI
+
+        client = AsyncOpenAI(
+            api_key=cfg.model_fallback_api_key,
+            base_url=cfg.model_fallback_base_url,
+        )
+        try:
+            response = await client.responses.create(
+                model=cfg.model_fallback_text_model,
+                input="Reply with exactly: live",
+                max_output_tokens=16,
+                safety_identifier=_safety_identifier(cfg),
+            )
+        finally:
+            await client.close()
+
+        reply = str(getattr(response, "output_text", "") or "").strip()
+        return ProbeResult(
+            name="model_fallback",
+            status="ok",
+            live=True,
+            required=required,
+            detail="Completed a real private fallback Responses API call.",
+            metadata={"model": cfg.model_fallback_text_model, "reply": reply[:40]},
+        )
+
+    return await _timed("model_fallback", required, _run)
+
+
+async def _probe_realtime_fallback(cfg: Config, required: bool) -> ProbeResult:
+    if not cfg.has_model_fallback:
+        return _blocked(
+            "realtime_fallback",
+            required,
+            "Missing COMMANDOS_MODEL_FALLBACK_API_KEY.",
+        )
+
+    async def _run() -> ProbeResult:
+        from openai import AsyncOpenAI
+
+        client = AsyncOpenAI(
+            api_key=cfg.model_fallback_api_key,
+            base_url=cfg.model_fallback_base_url,
+        )
+        try:
+            secret = await client.realtime.client_secrets.create(
+                session={
+                    "type": "realtime",
+                    "model": cfg.model_fallback_realtime_model,
+                    "instructions": "You are CommandOS. Keep responses brief.",
+                    "output_modalities": ["text"],
+                    "reasoning": {"effort": "low"},
+                },
+                extra_headers={"OpenAI-Safety-Identifier": _safety_identifier(cfg)},
+            )
+        finally:
+            await client.close()
+
+        session = getattr(secret, "session", None)
+        return ProbeResult(
+            name="realtime_fallback",
+            status="ok",
+            live=bool(getattr(secret, "value", None)),
+            required=required,
+            detail="Created a real Realtime client secret for the private fallback model.",
+            metadata={
+                "model": cfg.model_fallback_realtime_model,
+                "session_type": getattr(session, "type", "realtime"),
+                "expires_at_present": bool(getattr(secret, "expires_at", None)),
+            },
+        )
+
+    return await _timed("realtime_fallback", required, _run)
+
+
+async def _probe_translation_fallback(cfg: Config, required: bool) -> ProbeResult:
+    if not cfg.has_model_fallback:
+        return _blocked(
+            "translation_fallback",
+            required,
+            "Missing COMMANDOS_MODEL_FALLBACK_API_KEY.",
+        )
+
+    async def _run() -> ProbeResult:
+        from openai import AsyncOpenAI
+
+        client = AsyncOpenAI(
+            api_key=cfg.model_fallback_api_key,
+            base_url=cfg.model_fallback_base_url,
+        )
+        try:
+            model = await client.models.retrieve(cfg.model_fallback_translation_model)
+        finally:
+            await client.close()
+
+        return ProbeResult(
+            name="translation_fallback",
+            status="ok",
+            live=True,
+            required=required,
+            detail="Verified the private realtime translation model is available.",
+            metadata={"model": getattr(model, "id", cfg.model_fallback_translation_model)},
+        )
+
+    return await _timed("translation_fallback", required, _run)
 
 
 async def _probe_openai_compatible(
@@ -676,6 +818,11 @@ def _http_error(status: int, text: str) -> str:
     if len(sanitized) > 500:
         sanitized = sanitized[:500] + "..."
     return f"HTTP {status}: {sanitized}"
+
+
+def _safety_identifier(cfg: Config) -> str:
+    raw = f"{cfg.tenant_id}:{cfg.user_id}:{cfg.case_id}".encode()
+    return hashlib.sha256(raw).hexdigest()
 
 
 def _minimal_pdf_bytes(text: str) -> bytes:
