@@ -29,7 +29,7 @@ import { TranscriptPanel } from "./TranscriptPanel";
 type ReplayState = "idle" | "playing" | "done";
 
 export function PortalDashboard({ modes }: { modes: IntegrationModes }) {
-  const { events, inject } = useVoiceBridgeEvents();
+  const { events, inject, reset: resetEvents } = useVoiceBridgeEvents();
   const [replay, setReplay] = useState<ReplayState>("idle");
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   // Connected as an observer via Agent 1's CallProvider? (null in mock-only).
@@ -47,36 +47,66 @@ export function PortalDashboard({ modes }: { modes: IntegrationModes }) {
 
   const playMock = useCallback(() => {
     clearTimers();
+    resetEvents();
     setReplay("playing");
     let cumulative = 0;
     DEMO_SCRIPT.forEach((step, i) => {
       cumulative += step.delayMs;
       const t = setTimeout(() => {
-        // Re-stamp so timestamps reflect replay time (nice for the trace clock).
         const stamped: VoiceBridgeEvent = { ...step.event, timestamp: new Date().toISOString() };
         inject(stamped);
         if (i === DEMO_SCRIPT.length - 1) setReplay("done");
       }, cumulative);
       timers.current.push(t);
     });
-  }, [clearTimers, inject]);
+  }, [clearTimers, inject, resetEvents]);
+
+  const handleReset = useCallback(() => {
+    clearTimers();
+    resetEvents();
+    setReplay("idle");
+  }, [clearTimers, resetEvents]);
 
   useEffect(() => clearTimers, [clearTimers]);
 
+  // Show replay controls whenever not actively receiving live events.
   const showReplayControls = !liveEventSeen;
 
   return (
     <div className="space-y-4">
-      {/* Top row: call state + replay control */}
+      {/* Connection status banners */}
+      {call?.status === "error" && (
+        <div className="rounded-xl border border-vb-warn/40 bg-vb-warn/5 px-4 py-3">
+          <p className="text-xs font-medium text-vb-warn">Observer connection error</p>
+          {call.error && (
+            <p className="mt-1 font-mono text-xs text-vb-text/70">{call.error}</p>
+          )}
+          <p className="mt-1 text-xs text-vb-muted">
+            Live event stream unavailable. Use Mock replay to demonstrate the portal.
+          </p>
+        </div>
+      )}
+      {call?.status === "connecting" && (
+        <div className="rounded-xl border border-vb-border bg-vb-surface-2 px-4 py-3">
+          <p className="text-xs text-vb-muted">Connecting to live room as observer…</p>
+        </div>
+      )}
+
+      {/* Top row: call state + demo controls */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
         <div className="flex-1">
           <CallStatePanel events={events} source={source} />
         </div>
         {showReplayControls && (
           <div className="flex flex-col justify-center gap-2 rounded-xl border border-vb-border bg-vb-surface p-5 lg:w-64">
-            <span className="text-[10px] uppercase tracking-widest text-vb-muted">
-              {liveRoom ? "No live call yet" : "Standalone mode"}
-            </span>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase tracking-widest text-vb-muted">
+                {liveRoom ? "No live events yet" : "Standalone mode"}
+              </span>
+              <span className="rounded-full border border-vb-border px-2 py-0.5 text-[9px] uppercase tracking-widest text-vb-muted">
+                mock
+              </span>
+            </div>
             <button
               type="button"
               onClick={playMock}
@@ -86,13 +116,39 @@ export function PortalDashboard({ modes }: { modes: IntegrationModes }) {
               {replay === "playing"
                 ? "Replaying…"
                 : replay === "done"
-                  ? "Replay demo again"
-                  : "Replay demo"}
+                  ? "Replay again"
+                  : "Replay mock demo"}
             </button>
+            {events.length > 0 && (
+              <button
+                type="button"
+                onClick={handleReset}
+                className="rounded-lg border border-vb-border px-4 py-1.5 text-xs text-vb-muted transition hover:border-vb-accent hover:text-vb-text"
+              >
+                Reset log
+              </button>
+            )}
             <p className="text-[11px] leading-snug text-vb-muted">
-              Plays the scripted H-48291 claim call so the full sponsor trace and
-              outcome render without a live brain.
+              Scripted H-48291 claim call. Fills the sponsor trace, consent log,
+              and outcome without a live brain.
             </p>
+          </div>
+        )}
+        {liveEventSeen && (
+          <div className="flex flex-col justify-center gap-2 rounded-xl border border-vb-accent/30 bg-vb-accent/5 p-5 lg:w-64">
+            <span className="text-[10px] uppercase tracking-widest text-vb-accent">
+              Live room active
+            </span>
+            <p className="text-[11px] leading-snug text-vb-muted">
+              Receiving real events from the member&apos;s call.
+            </p>
+            <button
+              type="button"
+              onClick={handleReset}
+              className="rounded-lg border border-vb-border px-4 py-1.5 text-xs text-vb-muted transition hover:border-vb-accent hover:text-vb-text"
+            >
+              Reset log
+            </button>
           </div>
         )}
       </div>

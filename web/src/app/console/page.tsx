@@ -41,6 +41,7 @@ import { TranscriptView, deriveTranscript } from "@/components/console/Transcrip
 import { ContextPanel, deriveContext } from "@/components/console/ContextPanel";
 import { OutcomeCard } from "@/components/console/OutcomeCard";
 import { ConsoleButton, Pill } from "@/components/console/ui";
+import Link from "next/link";
 
 export default function ConsolePage() {
   // Agent 1's CallProvider supplies the live RoomContext (member role, mic on).
@@ -119,9 +120,10 @@ function appliedCorrections(events: VoiceBridgeEvent[]): Set<CorrectionKind> {
 }
 
 function ConsoleInner() {
-  const { events, publish, inject } = useVoiceBridgeEvents();
+  const { events, publish, inject, reset: resetEvents } = useVoiceBridgeEvents();
   const player = useMockPlayer(events, inject);
   const [callStarted, setCallStarted] = useState(false);
+  const [copied, setCopied] = useState(false);
   // Present when wrapped in <CallProvider>; null otherwise. "live" means an
   // actual room connection, so the standalone mock stays available until the
   // member connects.
@@ -169,8 +171,6 @@ function ConsoleInner() {
   const handleConsent = useCallback(
     (request: ConsentRequestedPayload, decision: ConsentDecision) => {
       if (decision.kind === "approve") {
-        // The shared value comes from the brain post-approval. We echo the
-        // contract's proposed disclosure only now that the member approved.
         safePublish("consent.approved", {
           field: request.field,
           shared_value: request.proposed_disclosure,
@@ -182,9 +182,6 @@ function ConsoleInner() {
           field: request.field,
           alternate: decision.text,
         });
-      } else {
-        // "Ask why" surfaces an explanation in-component; no event until the
-        // member then approves or declines.
       }
     },
     [safePublish],
@@ -209,6 +206,20 @@ function ConsoleInner() {
     [safePublish],
   );
 
+  const handleReset = useCallback(() => {
+    player.reset();
+    resetEvents();
+    setCallStarted(false);
+  }, [player, resetEvents]);
+
+  const handleCopyRoom = useCallback(() => {
+    const room = call?.connection?.room ?? DEMO.caseId;
+    void navigator.clipboard.writeText(room).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }, [call]);
+
   const started = callStarted || events.length > 0;
 
   return (
@@ -226,7 +237,7 @@ function ConsoleInner() {
             Case <code className="text-vb-text">{DEMO.caseId}</code>
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {call ? (
             <>
               <Pill
@@ -248,9 +259,19 @@ function ConsoleInner() {
                       ? "connection error"
                       : "ready"}
               </Pill>
+              {live && call.micEnabled && (
+                <Pill tone="approve">mic on</Pill>
+              )}
+              {live && !call.micEnabled && (
+                <Pill tone="warn">mic off</Pill>
+              )}
               {call.status === "connected" ? (
                 <ConsoleButton tone="neutral" onClick={() => void call.disconnect()}>
                   End call
+                </ConsoleButton>
+              ) : call.status === "error" ? (
+                <ConsoleButton tone="accent" onClick={() => void call.connect()}>
+                  Reconnect
                 </ConsoleButton>
               ) : (
                 <ConsoleButton tone="accent" onClick={() => void call.connect()}>
@@ -265,34 +286,84 @@ function ConsoleInner() {
         </div>
       </header>
 
-      {/* Demo player controls — only meaningful in mock mode, but harmless live */}
-      {!live ? (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-vb-border bg-vb-surface-2 px-4 py-3">
-          <span className="text-sm text-vb-muted">
-            Standalone demo · no live room. Replay the spec flow:
-          </span>
-          {!player.running ? (
-            <ConsoleButton tone="accent" onClick={player.start}>
-              Run demo
-            </ConsoleButton>
-          ) : (
-            <>
-              <span className="text-xs text-vb-muted">
-                Step {player.cursor}/{player.total}
-                {player.currentLabel ? ` · ${player.currentLabel}` : ""}
-              </span>
-              {player.awaiting ? (
-                <Pill tone="warn">waiting for your action</Pill>
-              ) : (
-                <Pill tone="accent">playing…</Pill>
-              )}
-              <ConsoleButton tone="neutral" onClick={player.reset}>
-                Reset
-              </ConsoleButton>
-            </>
-          )}
+      {/* Error detail — shown when connection fails so the operator sees why */}
+      {call?.status === "error" && call.error && (
+        <div className="rounded-xl border border-vb-warn/40 bg-vb-warn/5 px-4 py-3">
+          <p className="text-xs font-medium text-vb-warn">Connection error</p>
+          <p className="mt-1 font-mono text-xs text-vb-text/70">{call.error}</p>
+          <p className="mt-1 text-xs text-vb-muted">
+            Check that the server is running and LIVEKIT_API_KEY is set in{" "}
+            <code>web/.env</code>, then click Reconnect.
+          </p>
         </div>
-      ) : null}
+      )}
+
+      {/* Live room info — visible when connected so operator can share the room */}
+      {live && call.connection && (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-vb-accent/30 bg-vb-accent/5 px-4 py-3">
+          <Pill tone="approve">live room</Pill>
+          <span className="text-xs text-vb-muted">
+            Room: <code className="text-vb-text">{call.connection.room}</code>
+          </span>
+          <span className="text-xs text-vb-muted">
+            Identity: <code className="text-vb-text">{call.connection.identity}</code>
+          </span>
+          <ConsoleButton tone="neutral" className="py-1 text-xs" onClick={handleCopyRoom}>
+            {copied ? "Copied!" : "Copy room"}
+          </ConsoleButton>
+          <Link
+            href="/portal"
+            target="_blank"
+            className="rounded-lg border border-vb-border px-3 py-1 text-xs text-vb-muted transition hover:border-vb-accent hover:text-vb-text"
+          >
+            Open portal →
+          </Link>
+        </div>
+      )}
+
+      {/* Demo / operator controls bar */}
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-vb-border bg-vb-surface-2 px-4 py-3">
+        {live ? (
+          <>
+            <Pill tone="approve">live call active — mic drives the agent</Pill>
+            <Link
+              href="/portal"
+              target="_blank"
+              className="rounded-lg border border-vb-border px-3 py-1.5 text-sm text-vb-muted transition hover:border-vb-accent hover:text-vb-text"
+            >
+              Open portal →
+            </Link>
+          </>
+        ) : (
+          <>
+            <span className="text-sm text-vb-muted">
+              Mock demo · no live room. Replay the scripted flow:
+            </span>
+            {!player.running ? (
+              <ConsoleButton tone="accent" onClick={player.start}>
+                Run mock demo
+              </ConsoleButton>
+            ) : (
+              <>
+                <span className="text-xs text-vb-muted">
+                  Step {player.cursor}/{player.total}
+                  {player.currentLabel ? ` · ${player.currentLabel}` : ""}
+                </span>
+                {player.awaiting ? (
+                  <Pill tone="warn">waiting for your action</Pill>
+                ) : (
+                  <Pill tone="muted">playing…</Pill>
+                )}
+              </>
+            )}
+          </>
+        )}
+        {started && (
+          <ConsoleButton tone="neutral" onClick={handleReset}>
+            Reset log
+          </ConsoleButton>
+        )}
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
         {/* Left: controls */}
@@ -327,7 +398,7 @@ function ConsoleInner() {
 
       {!started ? (
         <p className="text-center text-xs text-vb-muted">
-          Send an intent above to begin, or run the standalone demo.
+          Connect to start a live call, or run the mock demo to see the full flow.
         </p>
       ) : null}
     </main>

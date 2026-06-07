@@ -31,6 +31,8 @@ export interface UseVoiceBridgeEvents {
   publish: <T extends EventType>(type: T, payload: EventPayloadMap[T]) => Promise<void>;
   /** Inject an event locally without sending it (for mock-driven demos). */
   inject: (event: VoiceBridgeEvent) => void;
+  /** Clear the local event log (for demo resets). Does not affect the room. */
+  reset: () => void;
 }
 
 export function useVoiceBridgeEvents(): UseVoiceBridgeEvents {
@@ -71,6 +73,10 @@ export function useVoiceBridgeEvents(): UseVoiceBridgeEvents {
     [room, record],
   );
 
+  const reset = useCallback(() => {
+    setEvents([]);
+  }, []);
+
   const latest = events.length > 0 ? events[events.length - 1]! : null;
-  return { events, latest, publish, inject: record };
+  return { events, latest, publish, inject: record, reset };
 }
