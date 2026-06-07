@@ -13,9 +13,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "VoiceBridge — Northstar Insurance",
+  title: "CommandOS",
   description:
-    "Business-deployed conversational access layer for high-stakes insurance phone workflows.",
+    "Agentic OS for live business command rooms.",
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
   },
