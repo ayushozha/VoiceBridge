@@ -8,13 +8,14 @@ portal) renders, then hands conversation logic to the brain via tools.
 Pipeline (all swappable, fastest-reliable defaults):
   - STT:  LiveKit Inference (Deepgram Nova-3, multilingual) — no extra keys on
           LiveKit Cloud; supports the mid-call EN->ES switch out of the box.
-  - LLM:  NVIDIA Nemotron via the OpenAI-compatible plugin when
-          ``NVIDIA_NEMOTRON_VOICECHAT_API_KEY`` is set; otherwise LiveKit
-          Inference. (The brain/Agent 3 can later route this through TrueFoundry.)
-  - TTS:  Agent 2's voice adapter (``voicebridge_agent.voice.build_tts``) when
-          present; otherwise the first-party ElevenLabs plugin; otherwise
-          LiveKit Inference. Agent 1 only wires the seam — Agent 2 owns voice.
-  - VAD + turn detection: Silero VAD + multilingual turn detector.
+  - LLM:  LiveKit Inference for the live room. Provider-specific LLM adapters
+          stay available for readiness checks, but the demo job process avoids
+          thread-unsafe plugin registration.
+  - TTS:  LiveKit Inference for the live room. ElevenLabs remains available for
+          direct latency checks, but the demo job process avoids thread-unsafe
+          plugin registration.
+  - VAD: Silero VAD. Multilingual STT still supports the EN->ES switch; the
+         optional turn-detector runner is not required for the live demo path.
 
 Run (from repo root):
     pnpm agent:dev        # uv run python -m voicebridge_agent.agent dev
@@ -108,28 +109,14 @@ class VoiceBridgeAgent(Agent):
 
 
 def _build_llm(cfg: Config) -> LLMBase | str:
-    """Pick the LLM: private model fallback, NVIDIA Nemotron, then Inference.
+    """Pick the live-room LLM.
 
-    Returns either a constructed ``llm.LLM`` or a LiveKit Inference model string.
+    LiveKit's job runner imports project code inside its worker process. Some
+    provider plugins register global state on import and must run on the main
+    thread, so the demo voice session uses LiveKit Inference directly.
     """
-    if cfg.has_model_fallback:
-        from livekit.plugins import openai
-
-        logger.info("LLM: private model fallback (%s)", cfg.model_fallback_text_model)
-        return openai.LLM(
-            model=cfg.model_fallback_text_model,
-            base_url=cfg.model_fallback_base_url,
-            api_key=cfg.model_fallback_api_key,
-        )
-    if cfg.has_nvidia:
-        from livekit.plugins import openai
-
-        logger.info("LLM: NVIDIA Nemotron via OpenAI-compatible endpoint")
-        return openai.LLM(
-            model=NVIDIA_NEMOTRON_MODEL,
-            base_url=NVIDIA_OPENAI_BASE_URL,
-            api_key=cfg.nvidia_api_key,
-        )
+    if cfg.has_model_fallback or cfg.has_nvidia:
+        logger.info("LLM: LiveKit Inference (%s) for thread-safe demo runtime", INFERENCE_LLM_MODEL)
     logger.info("LLM: LiveKit Inference (%s)", INFERENCE_LLM_MODEL)
     return inference.LLM(model=INFERENCE_LLM_MODEL)
 
@@ -185,16 +172,17 @@ def _select_voice(cfg: Config) -> VoiceSelection:
 
 
 def _build_tts(selection: VoiceSelection) -> TTSBase | str:
-    """Pick the selected TTS adapter, then LiveKit Inference as fallback."""
-    try:
-        return selection.livekit_tts()
-    except Exception:  # noqa: BLE001 - never break call startup over voice fallback
-        logger.warning(
-            "Selected TTS provider %s cannot back LiveKit; using inference fallback",
-            selection.provider,
-            exc_info=True,
-        )
+    """Pick the live-room TTS.
 
+    Keep provider selection visible in logs, but use LiveKit Inference in the
+    job process to avoid thread-unsafe third-party plugin registration.
+    """
+    if selection.provider != "browser":
+        logger.info(
+            "TTS: LiveKit Inference (%s) for thread-safe demo runtime; selected=%s",
+            INFERENCE_TTS_MODEL,
+            selection.provider,
+        )
     logger.info("TTS: LiveKit Inference (%s)", INFERENCE_TTS_MODEL)
     return inference.TTS(model=INFERENCE_TTS_MODEL)
 
@@ -221,8 +209,14 @@ async def _say_and_publish_voice(
 ) -> None:
     """Speak one deterministic line and emit a matching voice.spoken event."""
     started = time.perf_counter()
-    speech = session.say(text, add_to_chat_ctx=True)
-    await speech.wait_for_playout()
+    try:
+        speech = session.say(text, add_to_chat_ctx=True)
+        await speech.wait_for_playout()
+    except RuntimeError as exc:
+        if "closing" in str(exc).lower():
+            logger.info("Skipping voice playback because the agent session is closing")
+            return
+        raise
     latency_ms = (time.perf_counter() - started) * 1000.0
     await publish_event(
         room,
@@ -294,15 +288,11 @@ async def entrypoint(ctx: JobContext) -> None:
         scope,
     )
 
-    # Multilingual turn detector lets the EN->ES switch work without retuning.
-    from livekit.plugins.turn_detector.multilingual import MultilingualModel
-
     session: AgentSession = AgentSession(
         stt=inference.STT(model=INFERENCE_STT_MODEL, language="multi"),
         llm=_build_llm(cfg),
         tts=_build_tts(voice_selection),
         vad=ctx.proc.userdata["vad"],
-        turn_detection=MultilingualModel(),
         preemptive_generation=True,
     )
 

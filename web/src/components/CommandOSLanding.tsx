@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { RoomEvent } from "livekit-client";
 import * as THREE from "three";
+import { useMaybeCall } from "@/components/CallProvider";
 
 /* ------------------------------------------------------------------ */
 /*  Math helpers                                                         */
@@ -316,7 +318,7 @@ function createScene(host: HTMLElement) {
 
   scene.add(new THREE.AmbientLight(0xffffff, 1.0));
 
-  const state = { progress: 0, vel: 0, px: 0, py: 0, listening: true };
+  const state = { progress: 0, vel: 0, px: 0, py: 0, listening: false };
   let streamZ = 0;
 
   function onPointer(e: PointerEvent) {
@@ -441,11 +443,14 @@ function createScene(host: HTMLElement) {
 /*  React component                                                     */
 /* ------------------------------------------------------------------ */
 export function CommandOSLanding() {
+  const call = useMaybeCall();
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<ReturnType<typeof createScene> | null>(null);
   const progressRef = useRef(0);
   const [progress, setProgress] = useState(0);
-  const [listening, setListeningState] = useState(true);
+  const [listening, setListeningState] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [agentOnline, setAgentOnline] = useState(false);
 
   // boot Three.js scene
   useEffect(() => {
@@ -496,6 +501,62 @@ export function CommandOSLanding() {
     sceneRef.current?.setListening(listening);
   }, [listening]);
 
+  useEffect(() => {
+    if (!call) return;
+    const room = call.room;
+
+    function updateAgentOnline() {
+      const hasAgent = Array.from(room.remoteParticipants.values()).some((participant) => {
+        const identity = participant.identity.toLowerCase();
+        return identity.includes("agent") || identity.includes("commandos");
+      });
+      setAgentOnline(hasAgent);
+    }
+
+    updateAgentOnline();
+    room.on(RoomEvent.ParticipantConnected, updateAgentOnline);
+    room.on(RoomEvent.ParticipantDisconnected, updateAgentOnline);
+    room.on(RoomEvent.Disconnected, updateAgentOnline);
+    return () => {
+      room.off(RoomEvent.ParticipantConnected, updateAgentOnline);
+      room.off(RoomEvent.ParticipantDisconnected, updateAgentOnline);
+      room.off(RoomEvent.Disconnected, updateAgentOnline);
+    };
+  }, [call]);
+
+  async function activateVoiceOS() {
+    setVoiceError(null);
+    setListeningState(true);
+    if (!call) {
+      setListeningState(false);
+      setVoiceError("Voice runtime unavailable");
+      return;
+    }
+    try {
+      await call.connect();
+      await call.setMicEnabled(true);
+    } catch (err) {
+      setListeningState(false);
+      setVoiceError(err instanceof Error ? err.message : "Voice activation failed");
+    }
+  }
+
+  async function toggleListening() {
+    if (!call || call.status !== "connected") {
+      await activateVoiceOS();
+      return;
+    }
+
+    const next = !call.micEnabled;
+    setListeningState(next);
+    try {
+      setVoiceError(null);
+      await call.setMicEnabled(next);
+    } catch (err) {
+      setVoiceError(err instanceof Error ? err.message : "Microphone update failed");
+    }
+  }
+
   const introOpacity = clamp(1 - progress * 5.5);
   const introY = -progress * 40;
   const introBlur = progress * 7;
@@ -504,6 +565,17 @@ export function CommandOSLanding() {
   const arrivalA = smooth(0.72, 0.97, progress);
   const railPct = Math.round(progress * 100);
   const flashOpacity = Math.exp(-Math.pow((progress - 0.5) / 0.05, 2)) * 0.45;
+  const voiceState =
+    voiceError ??
+    (call?.status === "connecting"
+      ? "Connecting"
+      : call?.status === "connected"
+        ? call.micEnabled
+          ? agentOnline
+            ? "Listening"
+            : "Waiting for agent"
+          : "Mic paused"
+        : "Activate voice");
 
   return (
     <main
@@ -602,9 +674,21 @@ export function CommandOSLanding() {
                 fontWeight: 500,
               }}
             >
-              <Link href="/console" style={{ textDecoration: "none", color: "#8ea2c8", transition: "color 0.25s" }}>
+              <button
+                type="button"
+                onClick={activateVoiceOS}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  color: call?.status === "connected" ? "#eaf0ff" : "#8ea2c8",
+                  cursor: "pointer",
+                  font: "inherit",
+                  padding: 0,
+                  transition: "color 0.25s",
+                }}
+              >
                 Voice OS
-              </Link>
+              </button>
               <Link href="/portal" style={{ textDecoration: "none", color: "#8ea2c8", transition: "color 0.25s" }}>
                 Command Center
               </Link>
@@ -778,7 +862,7 @@ export function CommandOSLanding() {
                   display: "inline-block",
                 }}
               />
-              Agentic OS · Online
+              Voice OS · {voiceState}
             </div>
             <div
               style={{
@@ -788,8 +872,9 @@ export function CommandOSLanding() {
                 justifyContent: "center",
               }}
             >
-              <Link
-                href="/console"
+              <button
+                type="button"
+                onClick={activateVoiceOS}
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
@@ -803,6 +888,9 @@ export function CommandOSLanding() {
                   background: "linear-gradient(120deg, rgba(255,45,143,0.22), rgba(58,108,255,0.22))",
                   boxShadow: "inset 0 0 0 1px rgba(180,205,255,0.32), 0 18px 60px rgba(120,60,255,0.3)",
                   backdropFilter: "blur(14px)",
+                  border: "none",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
                   transition: "transform 0.25s, box-shadow 0.25s",
                 }}
               >
@@ -826,7 +914,7 @@ export function CommandOSLanding() {
                   </svg>
                 </span>
                 Voice OS
-              </Link>
+              </button>
               <Link
                 href="/portal"
                 style={{
@@ -896,7 +984,9 @@ export function CommandOSLanding() {
             }}
           >
             <button
-              onClick={() => setListeningState((v) => !v)}
+              onClick={() => {
+                void toggleListening();
+              }}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -945,7 +1035,7 @@ export function CommandOSLanding() {
                   </svg>
                 )}
               </span>
-              {listening ? "Listening" : "Muted"}
+              {voiceState}
             </button>
           </div>
         </div>

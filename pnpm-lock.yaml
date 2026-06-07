@@ -25,6 +25,9 @@ importers:
       '@livekit/components-styles':
         specifier: ^1.2.0
         version: 1.2.0
+      '@livekit/protocol':
+        specifier: 1.46.6
+        version: 1.46.6
       '@voicebridge/contracts':
         specifier: workspace:*
         version: link:../contracts/ts
