@@ -1,0 +1,86 @@
+{
+  "schema": "voicebridge.unsiloed.business_document.v1",
+  "document_id": "unsiloed-northstar-claim-H-48291-request-v1",
+  "title": "Northstar Insurance claim H-48291 document request",
+  "source": {
+    "integration": "unsiloed",
+    "mode": "local_fixture",
+    "source_uri": "fixture://northstar-insurance/claims/H-48291/document-request",
+    "original_filename": "northstar-claim-H-48291-document-request.txt",
+    "parsed_at": "2026-06-07T00:00:00Z"
+  },
+  "scope": {
+    "tenant_id": "northstar_insurance",
+    "user_id": "ayush_demo",
+    "case_id": "home_claim_H-48291"
+  },
+  "business_context": {
+    "tenant_display_name": "Northstar Insurance",
+    "line_of_business": "homeowners",
+    "claim_number": "H-48291",
+    "policy_id": "HO-2026-4419",
+    "insured_name": "Ayush Ojha",
+    "date_of_loss": "2026-05-28",
+    "claim_status": "pending_documents_needed"
+  },
+  "structured_fields": {
+    "missing_documents": [
+      "damage photos",
+      "licensed contractor repair estimate"
+    ],
+    "deadline": "Upload the requested documents by June 17, 2026 to avoid review delays.",
+    "upload_instructions": "Upload documents in the Northstar claims portal under claim H-48291, or ask the representative to send a secure upload link by SMS or email.",
+    "escalation_instructions": "If the portal is unavailable or the claimant needs help, request a claims advocate callback and reference escalation code HOME-DOCS.",
+    "approved_phrasing": [
+      "The claim is pending because Northstar still needs damage photos and a licensed contractor repair estimate.",
+      "Northstar asks that the documents be uploaded by June 17, 2026 to keep the review moving.",
+      "Documents can be uploaded in the claims portal under claim H-48291, or the representative can send a secure upload link."
+    ]
+  },
+  "chunks": [
+    {
+      "chunk_id": "H-48291-document-requirements",
+      "section": "Required documents",
+      "topics": [
+        "missing_documents",
+        "document_requirements",
+        "claim_status"
+      ],
+      "text": "For claim H-48291, Northstar Insurance needs damage photos and a licensed contractor repair estimate before the adjuster can continue review.",
+      "page": 1
+    },
+    {
+      "chunk_id": "H-48291-upload-instructions",
+      "section": "Upload instructions",
+      "topics": [
+        "upload_instructions",
+        "portal",
+        "secure_link"
+      ],
+      "text": "Upload documents in the Northstar claims portal under claim H-48291. If the caller cannot use the portal, ask the representative to send a secure upload link by SMS or email.",
+      "page": 1
+    },
+    {
+      "chunk_id": "H-48291-deadline",
+      "section": "Deadline language",
+      "topics": [
+        "deadline",
+        "review_delay",
+        "approved_phrasing"
+      ],
+      "text": "Northstar requests the damage photos and repair estimate by June 17, 2026. Missing the date does not close the claim, but it may delay review.",
+      "page": 2
+    },
+    {
+      "chunk_id": "H-48291-escalation",
+      "section": "Escalation instructions",
+      "topics": [
+        "escalation",
+        "claims_advocate",
+        "portal_help"
+      ],
+      "text": "If the portal is unavailable or the claimant needs help, request a claims advocate callback and reference escalation code HOME-DOCS.",
+      "page": 2
+    }
+  ]
+}
