@@ -48,6 +48,8 @@ class Config:
     livekit_api_key: str | None
     livekit_api_secret: str | None
     room_name: str
+    sip_outbound_trunk_id: str | None
+    demo_outbound_phone_number: str | None
 
     # Voice providers
     elevenlabs_api_key: str | None
@@ -65,6 +67,10 @@ class Config:
     @property
     def has_livekit(self) -> bool:
         return bool(self.livekit_url and self.livekit_api_key and self.livekit_api_secret)
+
+    @property
+    def has_sip_outbound(self) -> bool:
+        return bool(self.has_livekit and self.sip_outbound_trunk_id)
 
     @property
     def has_elevenlabs(self) -> bool:
@@ -92,6 +98,8 @@ def load_config() -> Config:
         livekit_api_key=_val("LIVEKIT_API_KEY"),
         livekit_api_secret=_val("LIVEKIT_API_SECRET"),
         room_name=os.getenv("VOICEBRIDGE_ROOM", "voicebridge-demo"),
+        sip_outbound_trunk_id=_val("LIVEKIT_SIP_OUTBOUND_TRUNK_ID"),
+        demo_outbound_phone_number=_val("DEMO_OUTBOUND_PHONE_NUMBER"),
         elevenlabs_api_key=_val("ELEVENLABS_API_KEY"),
         elevenlabs_voice_id=_val("ELEVENLABS_VOICE_ID"),
         minimax_api_key=_val("MINIMAX_API_KEY"),
