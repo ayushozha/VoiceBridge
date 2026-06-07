@@ -117,7 +117,7 @@ Honest per spec. "Live" means the backend made a real provider call in the lates
 | Sponsor | Role | Status |
 | --- | --- | --- |
 | **LiveKit** | Real-time call transport | Verified live: room API reachable |
-| **MOSS** | Memory + retrieval | Blocked: credentials present, missing `MOSS_API_BASE_URL` or SDK/API docs |
+| **MOSS** | Memory + retrieval | Verified live: SDK index create/load/query/write succeeded |
 | **UnSiloed** | Document parsing | Verified live: tiny PDF parse succeeded |
 | **ElevenLabs** | Low-latency TTS (default) | Verified live: real PCM audio synthesized |
 | **MiniMax** | Low-latency TTS (sponsor path) | Blocked: API returns insufficient balance |

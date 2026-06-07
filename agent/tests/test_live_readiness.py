@@ -32,9 +32,9 @@ def cfg(**overrides: object) -> Config:
         "nvidia_api_key": None,
         "moss_project_id": None,
         "moss_project_key": None,
-        "moss_api_base_url": None,
         "moss_index_name": "voicebridge_business_knowledge",
         "moss_memory_index_name": "voicebridge_communication_memory",
+        "moss_model_id": "moss-minilm",
         "unsiloed_api_key": None,
         "unsiloed_parse_url": None,
         "truefoundry_api_key": None,
@@ -79,7 +79,7 @@ async def test_probe_env_reports_provider_presence_without_secret_values() -> No
     assert result.live is True
     assert result.metadata["livekit"] is True
     assert result.metadata["moss_credentials"] is True
-    assert result.metadata["moss_live_endpoint"] is False
+    assert result.metadata["moss_sdk"] is True
     assert result.metadata["payment_telemetry"] is False
     assert "lk-key" not in str(result.to_dict())
 

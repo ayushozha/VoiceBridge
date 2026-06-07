@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol
 
 from voicebridge_contract import (
     COMMANDOS_CASE_ID,
@@ -23,6 +23,20 @@ from voicebridge_contract import (
 )
 
 from voicebridge_brain.guardrails import GuardrailDecision, check_dangerous_action
+
+
+class IncidentMemoryBackend(Protocol):
+    source: str
+
+    def recall_similar_incident(self, query: str, region: str, system: str) -> dict[str, Any]:
+        """Return a prior-incident recall payload."""
+
+    def remember_incident_learning(
+        self,
+        scope: MemoryScope,
+        report: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Persist the final incident learning and return a memory.written payload."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,7 +149,7 @@ class SelfImprovingIncidentMemory:
 class CommandOSOrchestrator:
     """Emit the CommandOS conversational incident event stream."""
 
-    def __init__(self, memory: SelfImprovingIncidentMemory | None = None) -> None:
+    def __init__(self, memory: IncidentMemoryBackend | None = None) -> None:
         self.memory = memory or SelfImprovingIncidentMemory()
 
     def run(
@@ -291,6 +305,7 @@ class CommandOSOrchestrator:
             "Texas",
             "payment_gateway",
         )
+        memory_mode = "live" if similar["source"] == "moss" else "stub"
         emit(
             "memory.recalled",
             {
@@ -303,11 +318,12 @@ class CommandOSOrchestrator:
                 ],
                 "prior_call": similar,
                 "provider": "moss",
-                "integration_mode": "stub",
+                "integration_mode": memory_mode,
             },
             turn_id="memory",
+            mode=memory_mode,
         )
-        emit("similar_incident.recalled", similar, turn_id="memory")
+        emit("similar_incident.recalled", similar, turn_id="memory", mode=memory_mode)
         emit(
             "agent.utterance",
             {

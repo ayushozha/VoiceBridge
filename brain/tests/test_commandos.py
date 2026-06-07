@@ -1,4 +1,44 @@
+from voicebridge_contract import MemoryScope
+
 from voicebridge_brain import CommandOSOrchestrator, commandos_demo_ndjson, run_commandos_demo
+
+
+class _FakeMossMemory:
+    source = "moss"
+
+    def recall_similar_incident(self, query: str, region: str, system: str) -> dict:
+        return {
+            "source": "moss",
+            "similarity": 0.92,
+            "incident_id": "moss_prior_001",
+            "title": "Moss prior incident",
+            "what_happened": "Gateway queues backed up in Texas.",
+            "bad_action": "Restart before queue-depth checks.",
+            "successful_action": "Shift traffic before controlled restart.",
+            "owner": "payments_platform_on_call",
+            "frontend": {"scene": "prior_incident_overlay"},
+            "provenance": {
+                "store": "moss",
+                "index": "voicebridge_communication_memory",
+                "document_id": "moss_prior_001",
+            },
+        }
+
+    def remember_incident_learning(self, scope: MemoryScope, report: dict) -> dict:
+        return {
+            "source": "moss",
+            "provider": "moss",
+            "integration_mode": "live",
+            "event": "incident.learning_saved",
+            "before": {"index_name": "voicebridge_communication_memory"},
+            "after": {
+                "tenant_id": scope.tenant_id,
+                "user_id": scope.user_id,
+                "case_id": scope.case_id,
+                "latest_report_id": report["report_id"],
+                "document_id": "moss_learning_001",
+            },
+        }
 
 
 def test_commandos_demo_emits_conversational_incident_sequence() -> None:
@@ -61,6 +101,22 @@ def test_commandos_memory_writes_self_improving_learning() -> None:
     assert first_write.payload["event"] == "incident.learning_saved"
     assert first_write.payload["after"]["written_reports"] == 1
     assert second_write.payload["after"]["written_reports"] == 2
+
+
+def test_commandos_marks_moss_memory_events_live_when_moss_backend_is_injected() -> None:
+    events = CommandOSOrchestrator(memory=_FakeMossMemory()).run()
+
+    recall = next(event for event in events if event.type == "memory.recalled")
+    similar = next(event for event in events if event.type == "similar_incident.recalled")
+    write = next(event for event in events if event.type == "memory.written")
+
+    assert recall.mode == "live"
+    assert recall.payload["source"] == "moss"
+    assert recall.payload["integration_mode"] == "live"
+    assert similar.mode == "live"
+    assert similar.payload["provenance"]["store"] == "moss"
+    assert write.payload["source"] == "moss"
+    assert write.payload["integration_mode"] == "live"
 
 
 def test_commandos_ndjson_exports_events_for_non_livekit_frontends() -> None:

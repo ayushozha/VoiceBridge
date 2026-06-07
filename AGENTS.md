@@ -86,9 +86,9 @@ demo flow in UI state.
 - `memory.written`: final incident learning saved back to the memory harness.
 
 The live demo must not call the local MOSS-shaped store a working sponsor
-integration. `pnpm agent:live-check:strict` must pass before the judge demo; if
-MOSS is unavailable, the demo is blocked until `MOSS_API_BASE_URL` or sponsor
-SDK/API docs are provided.
+integration. `pnpm agent:live-check:strict` must pass before the judge demo.
+MOSS uses the official Python SDK with `MOSS_PROJECT_ID`, `MOSS_PROJECT_KEY`,
+`MOSS_MEMORY_INDEX_NAME`, and optional `MOSS_MODEL_ID`.
 
 Redis is not required yet. Add Redis, Upstash Vector, RedisVL, LanceDB, or
 sqlite-vec only when persistent vector recall across backend processes is

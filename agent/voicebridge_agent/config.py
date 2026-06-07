@@ -67,9 +67,9 @@ class Config:
     # Sponsor memory, docs, governance, and audit paths
     moss_project_id: str | None
     moss_project_key: str | None
-    moss_api_base_url: str | None
     moss_index_name: str
     moss_memory_index_name: str
+    moss_model_id: str
     unsiloed_api_key: str | None
     unsiloed_parse_url: str | None
     truefoundry_api_key: str | None
@@ -115,7 +115,7 @@ class Config:
 
     @property
     def has_moss_live(self) -> bool:
-        return bool(self.has_moss_credentials and self.moss_api_base_url)
+        return self.has_moss_credentials
 
     @property
     def has_unsiloed(self) -> bool:
@@ -156,12 +156,12 @@ def load_config() -> Config:
         nvidia_api_key=_val("NVIDIA_NEMOTRON_VOICECHAT_API_KEY"),
         moss_project_id=_val("MOSS_PROJECT_ID"),
         moss_project_key=_val("MOSS_PROJECT_KEY"),
-        moss_api_base_url=_val("MOSS_API_BASE_URL"),
         moss_index_name=os.getenv("MOSS_INDEX_NAME", "voicebridge_business_knowledge"),
         moss_memory_index_name=os.getenv(
             "MOSS_MEMORY_INDEX_NAME",
             "voicebridge_communication_memory",
         ),
+        moss_model_id=os.getenv("MOSS_MODEL_ID", "moss-minilm"),
         unsiloed_api_key=_val("UNSILOED_API_KEY"),
         unsiloed_parse_url=_val("UNSILOED_PARSE_URL"),
         truefoundry_api_key=_val("TRUEFOUNDRY_API_KEY"),

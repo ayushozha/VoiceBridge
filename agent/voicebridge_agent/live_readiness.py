@@ -135,7 +135,7 @@ async def _probe_env(cfg: Config, required: bool) -> ProbeResult:
         "nvidia": cfg.has_nvidia,
         "qwen": cfg.has_qwen,
         "moss_credentials": cfg.has_moss_credentials,
-        "moss_live_endpoint": cfg.has_moss_live,
+        "moss_sdk": cfg.has_moss_live,
         "unsiloed": cfg.has_unsiloed,
         "truefoundry": cfg.has_truefoundry,
         "aws": cfg.has_aws,
@@ -410,40 +410,63 @@ async def _probe_unsiloed(cfg: Config, required: bool) -> ProbeResult:
 async def _probe_moss(cfg: Config, required: bool) -> ProbeResult:
     if not cfg.has_moss_credentials:
         return _blocked("moss", required, "Missing MOSS_PROJECT_ID or MOSS_PROJECT_KEY.")
-    if not cfg.moss_api_base_url:
-        return _blocked(
-            "moss",
-            required,
-            "MOSS credentials are present, but no MOSS_API_BASE_URL/API docs are configured.",
-            metadata={
-                "project_id_present": True,
-                "project_key_present": True,
-                "memory_index": cfg.moss_memory_index_name,
-                "knowledge_index": cfg.moss_index_name,
-            },
-        )
 
     async def _run() -> ProbeResult:
-        url = cfg.moss_api_base_url.rstrip("/") + "/health"
-        headers = {
-            "Authorization": f"Bearer {cfg.moss_project_key}",
-            "X-MOSS-Project-ID": cfg.moss_project_id or "",
-        }
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
-            async with session.get(url, headers=headers) as resp:
-                text = await resp.text()
-                if resp.status >= 400:
-                    raise RuntimeError(_http_error(resp.status, text))
+        from voicebridge_brain.moss import MossConfig, MossIncidentMemoryAdapter
+        from voicebridge_contract import MemoryScope
+
+        def _call_moss() -> dict[str, Any]:
+            adapter = MossIncidentMemoryAdapter(
+                MossConfig(
+                    project_id=cfg.moss_project_id or "",
+                    project_key=cfg.moss_project_key or "",
+                    memory_index_name=cfg.moss_memory_index_name,
+                    model_id=cfg.moss_model_id,
+                )
+            )
+            index = adapter.ensure_ready()
+            recall = adapter.recall_similar_incident(
+                "Texas premium payment failures gateway queue saturation",
+                "Texas",
+                "payment_gateway",
+            )
+            write = adapter.remember_incident_learning(
+                MemoryScope(
+                    tenant_id=cfg.tenant_id,
+                    user_id=cfg.user_id,
+                    case_id=cfg.case_id,
+                ),
+                {
+                    "report_id": "moss_live_readiness",
+                    "title": "CommandOS Moss live readiness",
+                    "root_cause_hypothesis": "Readiness probe verified Moss read/write.",
+                    "recommended_mitigation": ["Keep Moss live memory wired for demo."],
+                    "customer_update": "Moss memory path is configured.",
+                },
+            )
+            return {"index": index, "recall": recall, "write": write}
+
+        result = await asyncio.to_thread(_call_moss)
         return ProbeResult(
             name="moss",
             status="ok",
             live=True,
             required=required,
-            detail="MOSS health endpoint responded.",
+            detail=(
+                "Moss SDK created/loaded the memory index, queried it, "
+                "and wrote a learning doc."
+            ),
             metadata={
-                "project_id_present": True,
                 "memory_index": cfg.moss_memory_index_name,
                 "knowledge_index": cfg.moss_index_name,
+                "index_status": result["index"].get("status"),
+                "index_created": result["index"].get("created"),
+                "doc_count": result["index"].get("doc_count"),
+                "recall_source": result["recall"].get("source"),
+                "recall_document_id": result["recall"]
+                .get("provenance", {})
+                .get("document_id"),
+                "write_document_id": result["write"].get("after", {}).get("document_id"),
             },
         )
 
@@ -567,46 +590,68 @@ async def _probe_payment_telemetry(cfg: Config, required: bool) -> ProbeResult:
 
 
 async def _probe_commandos_flow(cfg: Config, required: bool) -> ProbeResult:
-    from voicebridge_brain.commandos import CommandOSOrchestrator
-    from voicebridge_contract import MemoryScope
+    async def _run() -> ProbeResult:
+        from voicebridge_brain.commandos import CommandOSOrchestrator
+        from voicebridge_contract import MemoryScope
 
-    scope = MemoryScope(
-        tenant_id=cfg.tenant_id,
-        user_id=cfg.user_id,
-        case_id=cfg.case_id,
-    )
-    events = CommandOSOrchestrator().run(scope=scope)
-    stubbed = [
-        {
-            "sequence": event.sequence,
-            "type": event.type,
-            "provider": event.payload.get("provider"),
-            "source": event.payload.get("source"),
-            "store": event.payload.get("store"),
-        }
-        for event in events
-        if event.payload.get("integration_mode") == "stub"
-        or event.payload.get("source") == "local"
-        or event.payload.get("store") == "local"
-        or event.payload.get("enforced_by") == "local"
-    ]
-    if stubbed:
+        def _build_events() -> list[Any]:
+            memory = None
+            if cfg.has_moss_credentials:
+                from voicebridge_brain.moss import MossConfig, MossIncidentMemoryAdapter
+
+                memory = MossIncidentMemoryAdapter(
+                    MossConfig(
+                        project_id=cfg.moss_project_id or "",
+                        project_key=cfg.moss_project_key or "",
+                        memory_index_name=cfg.moss_memory_index_name,
+                        model_id=cfg.moss_model_id,
+                    )
+                )
+            return CommandOSOrchestrator(memory=memory).run(
+                scope=MemoryScope(
+                    tenant_id=cfg.tenant_id,
+                    user_id=cfg.user_id,
+                    case_id=cfg.case_id,
+                )
+            )
+
+        events = await asyncio.to_thread(_build_events)
+        stubbed = [
+            {
+                "sequence": event.sequence,
+                "type": event.type,
+                "provider": event.payload.get("provider"),
+                "source": event.payload.get("source"),
+                "store": event.payload.get("store"),
+            }
+            for event in events
+            if event.payload.get("integration_mode") == "stub"
+            or event.payload.get("source") == "local"
+            or event.payload.get("store") == "local"
+            or event.payload.get("enforced_by") == "local"
+        ]
+        if stubbed:
+            return ProbeResult(
+                name="commandos_flow",
+                status="failed",
+                live=False,
+                required=required,
+                detail=(
+                    "CommandOS event stream still contains fixture/local-backed "
+                    "integration events."
+                ),
+                metadata={"event_count": len(events), "stubbed_events": stubbed},
+            )
         return ProbeResult(
             name="commandos_flow",
-            status="failed",
-            live=False,
+            status="ok",
+            live=True,
             required=required,
-            detail="CommandOS event stream still contains fixture/local-backed integration events.",
-            metadata={"event_count": len(events), "stubbed_events": stubbed},
+            detail="CommandOS event stream has no stub/local integration payloads.",
+            metadata={"event_count": len(events)},
         )
-    return ProbeResult(
-        name="commandos_flow",
-        status="ok",
-        live=True,
-        required=required,
-        detail="CommandOS event stream has no stub/local integration payloads.",
-        metadata={"event_count": len(events)},
-    )
+
+    return await _timed("commandos_flow", required, _run)
 
 
 def _blocked(

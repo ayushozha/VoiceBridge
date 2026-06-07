@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "VoiceBridge conversation brain: orchestration, memory, consent, knowledge, and language adapters."
 requires-python = ">=3.10,<3.15"
 dependencies = [
+  "moss>=1.4.0",
   "voicebridge-contract",
 ]
 
