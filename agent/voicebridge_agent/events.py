@@ -33,3 +33,13 @@ async def publish_event(
         topic=EVENT_TOPIC,
     )
     return event
+
+
+async def publish_existing_event(room: rtc.Room, event: Event) -> Event:
+    """Publish an already-built contract event to all participants."""
+    await room.local_participant.publish_data(
+        event.encode(),
+        reliable=True,
+        topic=EVENT_TOPIC,
+    )
+    return event

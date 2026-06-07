@@ -105,7 +105,8 @@ export function sponsorForEvent(event: VoiceBridgeEvent): Sponsor | null {
       return event.payload.source === "moss" ? "moss" : "moss"; // local fallback still represents MOSS path
 
     case "knowledge.retrieved":
-      return event.payload.source === "unsiloed" ? "unsiloed" : "moss";
+      if (event.payload.source === "moss") return "moss";
+      return "unsiloed";
 
     case "guardrail.checked":
       return event.payload.enforced_by === "truefoundry" ? "truefoundry" : "truefoundry";

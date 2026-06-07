@@ -28,7 +28,9 @@ check.
 from __future__ import annotations
 
 import logging
+import sys
 import textwrap
+import time
 from typing import TYPE_CHECKING, Any
 
 from livekit.agents import (
@@ -42,15 +44,17 @@ from livekit.agents import (
     room_io,
 )
 from livekit.plugins import silero
-from voicebridge_contract import DEMO_LANGUAGES, MemoryScope
+from voicebridge_contract import DEMO_LANGUAGES, Event, MemoryScope
 
 from voicebridge_agent.config import Config, load_config
-from voicebridge_agent.events import publish_event
+from voicebridge_agent.events import publish_event, publish_existing_event
 from voicebridge_agent.transport import HealthState, build_health_state
 
 if TYPE_CHECKING:  # keep heavy/typing-only imports out of runtime
     from livekit.agents.llm import LLM as LLMBase
     from livekit.agents.tts import TTS as TTSBase
+
+    from voicebridge_agent.voice import VoiceSelection
 
 logger = logging.getLogger("voicebridge.agent")
 
@@ -124,7 +128,7 @@ def _build_llm(cfg: Config) -> LLMBase | str:
     return inference.LLM(model=INFERENCE_LLM_MODEL)
 
 
-def _build_tts(cfg: Config) -> TTSBase | str:
+def _build_tts_legacy(cfg: Config) -> TTSBase | str:
     """Pick the TTS via Agent 2's voice adapter, then ElevenLabs, then Inference.
 
     Agent 2 owns ``voicebridge_agent.voice``; we only consume its seam. If the
@@ -160,6 +164,90 @@ def _build_tts(cfg: Config) -> TTSBase | str:
     return inference.TTS(model=INFERENCE_TTS_MODEL)
 
 
+def _startup_log(message: str) -> None:
+    """Emit a visible startup line even when the LiveKit CLI is quiet."""
+    print(f"[voicebridge-agent] {message}", flush=True)
+
+
+def _select_voice(cfg: Config) -> VoiceSelection:
+    """Select the configured voice provider and preserve trace metadata."""
+    from voicebridge_agent.voice import select_tts
+
+    selection = select_tts(cfg)
+    logger.info("TTS selection: %s", selection.describe())
+    return selection
+
+
+def _build_tts(selection: VoiceSelection) -> TTSBase | str:
+    """Pick the selected TTS adapter, then LiveKit Inference as fallback."""
+    try:
+        return selection.livekit_tts()
+    except Exception:  # noqa: BLE001 - never break call startup over voice fallback
+        logger.warning(
+            "Selected TTS provider %s cannot back LiveKit; using inference fallback",
+            selection.provider,
+            exc_info=True,
+        )
+
+    logger.info("TTS: LiveKit Inference (%s)", INFERENCE_TTS_MODEL)
+    return inference.TTS(model=INFERENCE_TTS_MODEL)
+
+
+async def _publish_brain_events(room: Any, scope: MemoryScope) -> list[Event]:
+    """Run the deterministic brain and publish its events into the live room."""
+    from voicebridge_brain.orchestrator import DemoOrchestrator
+
+    events = DemoOrchestrator().run(scope=scope)
+    for event in events:
+        await publish_existing_event(room, event)
+    logger.info("Published %s brain events to LiveKit topic", len(events))
+    return events
+
+
+async def _say_and_publish_voice(
+    session: AgentSession,
+    room: Any,
+    scope: MemoryScope,
+    *,
+    text: str,
+    language: str,
+    provider: str,
+) -> None:
+    """Speak one deterministic line and emit a matching voice.spoken event."""
+    started = time.perf_counter()
+    speech = session.say(text, add_to_chat_ctx=True)
+    await speech.wait_for_playout()
+    latency_ms = (time.perf_counter() - started) * 1000.0
+    await publish_event(
+        room,
+        "voice.spoken",
+        {
+            "text": text,
+            "speaker": "agent",
+            "language": language,
+            "provider": provider,
+            "latency_ms": round(latency_ms, 1),
+        },
+        scope,
+    )
+
+
+def smoke_check() -> None:
+    """Validate config and import surfaces without starting a worker."""
+    cfg = load_config()
+    selection = _select_voice(cfg)
+    from voicebridge_brain.orchestrator import DemoOrchestrator
+
+    scope = MemoryScope(tenant_id=cfg.tenant_id, user_id=cfg.user_id, case_id=cfg.case_id)
+    event_count = len(DemoOrchestrator().run(scope=scope))
+    _startup_log(
+        "smoke ok | "
+        f"livekit={cfg.has_livekit} elevenlabs={cfg.has_elevenlabs} "
+        f"minimax={cfg.has_minimax} qwen={cfg.has_qwen} nvidia={cfg.has_nvidia} "
+        f"voice={selection.provider} brain_events={event_count}"
+    )
+
+
 def prewarm(proc: JobProcess) -> None:
     """Load the Silero VAD once per process so the first job starts fast."""
     proc.userdata["vad"] = silero.VAD.load()
@@ -175,7 +263,9 @@ async def entrypoint(ctx: JobContext) -> None:
     cfg = load_config()
     scope = MemoryScope(tenant_id=cfg.tenant_id, user_id=cfg.user_id, case_id=cfg.case_id)
     ctx.log_context_fields = {"room": ctx.room.name, "case_id": cfg.case_id}
+    voice_selection = _select_voice(cfg)
 
+    _startup_log(f"job accepted room={ctx.room.name} case_id={cfg.case_id}")
     logger.info(
         "VoiceBridge agent joining room=%s (nvidia=%s elevenlabs=%s minimax=%s qwen=%s)",
         ctx.room.name,
@@ -187,6 +277,7 @@ async def entrypoint(ctx: JobContext) -> None:
 
     # Connect first so we can publish call.started before the session starts.
     await ctx.connect()
+    _startup_log(f"connected room={ctx.room.name}")
     await publish_event(
         ctx.room,
         "call.started",
@@ -200,7 +291,7 @@ async def entrypoint(ctx: JobContext) -> None:
     session: AgentSession = AgentSession(
         stt=inference.STT(model=INFERENCE_STT_MODEL, language="multi"),
         llm=_build_llm(cfg),
-        tts=_build_tts(cfg),
+        tts=_build_tts(voice_selection),
         vad=ctx.proc.userdata["vad"],
         turn_detection=MultilingualModel(),
         preemptive_generation=True,
@@ -215,6 +306,7 @@ async def entrypoint(ctx: JobContext) -> None:
             text_input=True,
         ),
     )
+    _startup_log(f"agent session started room={ctx.room.name}")
 
     health: HealthState = build_health_state(ctx.room, session_started=True)
     await publish_event(
@@ -229,22 +321,43 @@ async def entrypoint(ctx: JobContext) -> None:
         {"mic_active": health.mic_active, "audio_out_active": health.audio_out_active},
         scope,
     )
-
-    # Brief spoken greeting so the call is audibly live. The brain/Agent 3 takes
-    # over real conversation orchestration via tools; this is the bring-up turn.
-    greeting_lang = DEMO_LANGUAGES[0]
-    await session.generate_reply(
-        instructions=(
-            f"Greet the representative in {greeting_lang}. Say you are calling on "
-            "behalf of the member about their home insurance claim, and keep it to "
-            "one short sentence."
-        )
+    _startup_log(
+        "events emitted call.started call.agent_joined call.audio_ready "
+        f"room={ctx.room.name}"
     )
+
+    brain_events = await _publish_brain_events(ctx.room, scope)
+
+    # Speak deterministic agent turns from the brain so the live trace contains
+    # honest voice.spoken events. Non-agent brain events remain data-channel only.
+    for event in brain_events:
+        if event.type != "agent.utterance":
+            continue
+        text = str(event.payload.get("text", "")).strip()
+        if not text:
+            continue
+        await _say_and_publish_voice(
+            session,
+            ctx.room,
+            scope,
+            text=text,
+            language=str(event.payload.get("language") or DEMO_LANGUAGES[0]),
+            provider=voice_selection.provider,
+        )
 
 
 def main() -> None:
     """CLI entry: validate config, then run the LiveKit agent server."""
+    if len(sys.argv) > 1 and sys.argv[1] == "smoke":
+        smoke_check()
+        return
+
     cfg = load_config()
+    _startup_log(
+        "config loaded | "
+        f"livekit={cfg.has_livekit} elevenlabs={cfg.has_elevenlabs} "
+        f"minimax={cfg.has_minimax} qwen={cfg.has_qwen} nvidia={cfg.has_nvidia}"
+    )
     logger.info(
         "VoiceBridge agent config: livekit=%s elevenlabs=%s minimax=%s qwen=%s nvidia=%s",
         cfg.has_livekit,
@@ -258,6 +371,7 @@ def main() -> None:
             "LIVEKIT_URL / LIVEKIT_API_KEY / LIVEKIT_API_SECRET are required. "
             "Set them in the repo-root .env."
         )
+    _startup_log(f"starting LiveKit worker command={sys.argv[1:] or ['dev']}")
     cli.run_app(server)
 
 

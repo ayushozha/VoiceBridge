@@ -15,6 +15,7 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "brain:test": "cd brain && uv run pytest",
     "brain:lint": "cd brain && uv run ruff check .",
+    "agent:smoke": "cd agent && uv run python -m voicebridge_agent.agent smoke",
     "agent:dev": "cd agent && uv run python -m voicebridge_agent.agent dev",
     "agent:console": "cd agent && uv run python -m voicebridge_agent.agent console",
     "agent:setup": "cd agent && uv sync && uv run --module livekit.agents download-files"

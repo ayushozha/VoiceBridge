@@ -19,14 +19,23 @@ type Status = "live" | "stub" | "off";
 
 /**
  * Per-spec honesty: live sponsors when configured; otherwise faithful stub.
- * AWS + TrueFoundry are expected stubs in the hackathon; ElevenLabs/MiniMax/
- * Qwen depend on configured creds. Anything env says is off but still has a
- * working local adapter shows as "stub" rather than "off".
+ * AWS + TrueFoundry are expected stubs in the hackathon; MOSS/UnSiloed/Qwen
+ * also have local sponsor-shaped adapters until their live flags are enabled.
+ * Anything env says is off but still has a working local adapter shows as
+ * "stub" rather than "off".
  */
 function statusFor(id: Sponsor, modes: IntegrationModes): Status {
   if (modes[id]) return "live";
   // These have faithful local adapters/fallbacks even when env is unset.
-  const stubbable: Sponsor[] = ["truefoundry", "aws", "moss", "qwen", "minimax", "elevenlabs"];
+  const stubbable: Sponsor[] = [
+    "truefoundry",
+    "aws",
+    "moss",
+    "unsiloed",
+    "qwen",
+    "minimax",
+    "elevenlabs",
+  ];
   return stubbable.includes(id) ? "stub" : "off";
 }
 

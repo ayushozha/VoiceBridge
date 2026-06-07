@@ -20,6 +20,9 @@ dependencies = [
   "aiohttp>=3.14.0",
   # Shared contract (local path dependency)
   "voicebridge-contract",
+  # Demo brain (local path dependency) publishes memory, consent, knowledge,
+  # language, outcome, and audit events into the live call stream.
+  "voicebridge-brain",
 ]
 
 [project.optional-dependencies]
@@ -31,6 +34,7 @@ dev = [
 
 [tool.uv.sources]
 voicebridge-contract = { path = "../contracts/python", editable = true }
+voicebridge-brain = { path = "../brain", editable = true }
 
 [build-system]
 requires = ["hatchling"]
