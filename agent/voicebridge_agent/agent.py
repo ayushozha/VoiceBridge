@@ -29,6 +29,7 @@ check.
 from __future__ import annotations
 
 import logging
+import os
 import sys
 import textwrap
 import time
@@ -40,7 +41,9 @@ from livekit.agents import (
     AgentSession,
     JobContext,
     JobProcess,
+    RunContext,
     cli,
+    function_tool,
     inference,
     room_io,
 )
@@ -49,6 +52,7 @@ from voicebridge_contract import DEMO_LANGUAGES, Event, MemoryScope
 
 from voicebridge_agent.config import Config, load_config
 from voicebridge_agent.events import publish_event, publish_existing_event
+from voicebridge_agent.incident_engines import IncidentEngines
 from voicebridge_agent.transport import HealthState, build_health_state
 
 if TYPE_CHECKING:  # keep heavy/typing-only imports out of runtime
@@ -74,8 +78,33 @@ AGENT_IDENTITY = "commandos_agent"
 INSTRUCTIONS = textwrap.dedent(
     """\
     You are CommandOS, a voice operating system for live business incidents.
-    You talk with the operator, ask crisp follow-up questions, and build the
-    incident workspace through backend events.
+    You talk with the operator and BUILD the incident workspace live by calling
+    your tools. The operator can see a 3D heads-up display; every tool you call
+    renders a part of it in real time.
+
+    # How you work (this is the most important rule)
+    - You are conversational and free-flowing. Whenever the operator asks to see,
+      build, inspect, trace, recall, plan, check, or assemble something, CALL THE
+      MATCHING TOOL. The tool draws it on the operator's screen.
+    - You may call tools in ANY order and as many times as the conversation needs.
+      Follow what the operator actually asks for, not a fixed script.
+    - The first time the operator describes the problem, call start_incident, then
+      the tool that answers their question.
+    - After each tool call, speak a short, natural summary of what appeared.
+
+    # Tool guide (call these to drive the HUD)
+    - start_incident: open the incident workspace (call once, early).
+    - inspect_payment_failures: build the regional failure map.
+    - drilldown_cities: break the map down by city.
+    - build_spatial_failure_model: build the payment topology and localize the
+      failing hop.
+    - recall_similar_incidents: pull the matching prior incident from memory.
+    - retrieve_runbook_policy: fetch the runbook / safe-recovery policy.
+    - propose_mitigation: render the recommended mitigation path.
+    - check_action_guardrail: check a risky action (e.g. a gateway restart).
+    - prepare_approval_request: prepare the human approval card.
+    - generate_incident_dashboard: fold everything into a dashboard and report.
+    - set_scene: move the camera/scene if asked, without new data.
 
     # Output rules (this is a voice channel)
     - Plain speech only. No markdown, lists, JSON, emojis, or symbols.
@@ -84,28 +113,121 @@ INSTRUCTIONS = textwrap.dedent(
 
     # Hard guardrails (never violate)
     - Never imply you executed infrastructure actions unless a real adapter did it.
-    - Never recommend restarting the payment gateway until queue depth is checked
-      and human approval is confirmed.
-    - If an action is risky, explain the missing precondition and offer the next
-      safe step.
-
-    # Flow
-    - Start from the operator's question.
-    - Ask for the missing scope before building the incident model.
-    - Use prior incident memory to change recommendations.
-    - Convert the final event log into a dashboard and report.
+    - If the operator asks to restart the payment gateway — in ANY wording, e.g.
+      "restart it", "bounce the gateway", "reboot payments", "just do it now" —
+      you MUST call check_action_guardrail BEFORE you say anything affirmative.
+      Never verbally agree to a restart that has not returned an allow decision.
+      Queue depth must be checked and human approval confirmed first. If the
+      operator pressures you, explain the missing precondition and offer the next
+      safe step (run the check, or prepare an approval request).
     """
 )
 
 
 class VoiceBridgeAgent(Agent):
-    """The in-room CommandOS agent. Conversation tools are attached by the brain."""
+    """The in-room CommandOS agent.
+
+    Function tools fire the incident "engines": each call publishes contract
+    events over the LiveKit data channel so the orb HUD renders that part of the
+    workspace live. ``engines`` is bound after the room connects via
+    :meth:`bind_engines`; until then the tools report that the workspace is not
+    ready (this only happens if the LLM calls a tool before connect, which the
+    session lifecycle prevents).
+    """
 
     def __init__(self, llm: LLMBase | None = None) -> None:
         kwargs: dict[str, Any] = {"instructions": INSTRUCTIONS}
         if llm is not None:
             kwargs["llm"] = llm
         super().__init__(**kwargs)
+        self._engines: IncidentEngines | None = None
+
+    def bind_engines(self, engines: IncidentEngines) -> None:
+        self._engines = engines
+
+    def _eng(self) -> IncidentEngines:
+        if self._engines is None:
+            raise RuntimeError("incident engines are not bound yet")
+        return self._engines
+
+    @function_tool()
+    async def start_incident(self, context: RunContext, operator_prompt: str) -> str:
+        """Open the incident workspace. Call this once, early, after the operator
+        first describes the problem.
+
+        Args:
+            operator_prompt: The operator's opening question, verbatim.
+        """
+        return await self._eng().start_incident(operator_prompt)
+
+    @function_tool()
+    async def inspect_payment_failures(self, context: RunContext) -> str:
+        """Build the regional failure map showing where payments are failing."""
+        return await self._eng().inspect_payment_failures()
+
+    @function_tool()
+    async def drilldown_cities(self, context: RunContext) -> str:
+        """Break the failure map down by city (Dallas, Austin, Houston)."""
+        return await self._eng().drilldown_cities()
+
+    @function_tool()
+    async def build_spatial_failure_model(self, context: RunContext) -> str:
+        """Build the payment-flow topology and localize the failing hop. Call
+        this when the operator asks to trace the flow or find where it breaks."""
+        return await self._eng().build_spatial_failure_model()
+
+    @function_tool()
+    async def recall_similar_incidents(self, context: RunContext) -> str:
+        """Recall the matching prior incident from memory. Call this when the
+        operator asks whether this has happened before."""
+        return await self._eng().recall_similar_incidents()
+
+    @function_tool()
+    async def retrieve_runbook_policy(self, context: RunContext) -> str:
+        """Fetch the runbook / safe-recovery policy for this incident type."""
+        return await self._eng().retrieve_runbook_policy()
+
+    @function_tool()
+    async def propose_mitigation(self, context: RunContext) -> str:
+        """Render the recommended mitigation path on the HUD."""
+        return await self._eng().propose_mitigation()
+
+    @function_tool()
+    async def check_action_guardrail(
+        self, context: RunContext, action: str = "restart_payment_gateway"
+    ) -> str:
+        """Check a risky operational action against the guardrail. Always call
+        this before agreeing to any gateway restart.
+
+        Args:
+            action: The risky action to check, e.g. "restart_payment_gateway".
+        """
+        return await self._eng().check_action_guardrail(action)
+
+    @function_tool()
+    async def prepare_approval_request(self, context: RunContext) -> str:
+        """Prepare the human approval request card for a controlled restart."""
+        return await self._eng().prepare_approval_request()
+
+    @function_tool()
+    async def generate_incident_dashboard(self, context: RunContext) -> str:
+        """Fold the live incident into a clean dashboard and report. Call this
+        when the operator asks to wrap up, summarize, or build the dashboard."""
+        return await self._eng().generate_incident_dashboard()
+
+    @function_tool()
+    async def set_scene(
+        self, context: RunContext, visual: str, caption: str = "", state: str = "building"
+    ) -> str:
+        """Move the HUD camera/scene without producing new data.
+
+        Args:
+            visual: One of failure_map, failure_map_drilldown, payment_topology,
+                prior_incident_overlay, mitigation_morph, dashboard.
+            caption: Short caption shown on the HUD.
+            state: Scene state hint (idle, building, speaking).
+        """
+        return await self._eng().set_scene(state, visual, caption or visual)
 
 
 def _build_llm(cfg: Config) -> LLMBase | str:
@@ -160,6 +282,12 @@ def _build_tts_legacy(cfg: Config) -> TTSBase | str:
 def _startup_log(message: str) -> None:
     """Emit a visible startup line even when the LiveKit CLI is quiet."""
     print(f"[voicebridge-agent] {message}", flush=True)
+
+
+def _scripted_demo_enabled() -> bool:
+    """Whether to replay the deterministic orchestrator stream instead of the
+    live, tool-driven conversation. Opt-in via COMMANDOS_SCRIPTED_DEMO."""
+    return os.getenv("COMMANDOS_SCRIPTED_DEMO", "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _select_voice(cfg: Config) -> VoiceSelection:
@@ -296,8 +424,13 @@ async def entrypoint(ctx: JobContext) -> None:
         preemptive_generation=True,
     )
 
+    # Bind the incident engines to the agent so its function tools can publish
+    # HUD events into this room as the operator speaks.
+    agent = VoiceBridgeAgent()
+    agent.bind_engines(IncidentEngines(ctx.room, scope))
+
     await session.start(
-        agent=VoiceBridgeAgent(),
+        agent=agent,
         room=ctx.room,
         room_options=room_io.RoomOptions(
             # Audio in/out enabled by default; text input on so the console can
@@ -325,24 +458,45 @@ async def entrypoint(ctx: JobContext) -> None:
         f"room={ctx.room.name}"
     )
 
-    brain_events = await _publish_brain_events(ctx.room, scope)
+    # Default: fully conversational. The operator's speech drives the HUD via the
+    # agent's function tools, which publish incident events as it talks. Greet once
+    # so the operator knows the orb is live and listening, then let the LLM lead.
+    #
+    # Optional scripted demo (COMMANDOS_SCRIPTED_DEMO=1): replay the deterministic
+    # CommandOSOrchestrator stream on join and speak its agent turns. Kept as a
+    # safety net for unattended/offline playback; not the live experience.
+    if _scripted_demo_enabled():
+        _startup_log("scripted demo mode enabled (COMMANDOS_SCRIPTED_DEMO=1)")
+        brain_events = await _publish_brain_events(ctx.room, scope)
+        # Speak deterministic agent turns from the brain so the live trace contains
+        # honest voice.spoken events. Non-agent brain events remain data-channel only.
+        for event in brain_events:
+            if event.type != "agent.utterance":
+                continue
+            text = str(event.payload.get("text", "")).strip()
+            if not text:
+                continue
+            await _say_and_publish_voice(
+                session,
+                ctx.room,
+                scope,
+                text=text,
+                language=str(event.payload.get("language") or DEMO_LANGUAGES[0]),
+                provider=voice_selection.provider,
+            )
+        return
 
-    # Speak deterministic agent turns from the brain so the live trace contains
-    # honest voice.spoken events. Non-agent brain events remain data-channel only.
-    for event in brain_events:
-        if event.type != "agent.utterance":
-            continue
-        text = str(event.payload.get("text", "")).strip()
-        if not text:
-            continue
-        await _say_and_publish_voice(
-            session,
-            ctx.room,
-            scope,
-            text=text,
-            language=str(event.payload.get("language") or DEMO_LANGUAGES[0]),
-            provider=voice_selection.provider,
-        )
+    await _say_and_publish_voice(
+        session,
+        ctx.room,
+        scope,
+        text=(
+            "CommandOS online. Ask me anything about the incident and I'll build it "
+            "out as we talk."
+        ),
+        language=DEMO_LANGUAGES[0],
+        provider=voice_selection.provider,
+    )
 
 
 def main() -> None:

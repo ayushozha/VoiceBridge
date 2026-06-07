@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import { RoomEvent } from "livekit-client";
 import * as THREE from "three";
 import { useMaybeCall } from "@/components/CallProvider";
+import { IncidentHUD } from "@/components/IncidentHUD";
+import { useVoiceBridgeEvents } from "@/lib/useVoiceBridgeEvents";
 
 /* ------------------------------------------------------------------ */
 /*  Math helpers                                                         */
@@ -444,6 +446,9 @@ function createScene(host: HTMLElement) {
 /* ------------------------------------------------------------------ */
 export function CommandOSLanding() {
   const call = useMaybeCall();
+  // Typed event bus over the LiveKit data channel. The agent publishes incident
+  // events as the operator speaks; we feed them straight into the live HUD.
+  const { events, publish } = useVoiceBridgeEvents();
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<ReturnType<typeof createScene> | null>(null);
   const progressRef = useRef(0);
@@ -577,8 +582,59 @@ export function CommandOSLanding() {
           : "Mic paused"
         : "Activate voice");
 
+  const micStatus =
+    voiceError ??
+    (call?.status === "connecting"
+      ? "Connecting"
+      : call?.micEnabled
+        ? agentOnline
+          ? "Listening"
+          : "Waiting for agent"
+        : "Mic muted");
+
+  // Open the live HUD once the workspace starts to build. Pure derived state:
+  // the event log only grows, so an incident-shaping event present once stays
+  // present — the "latch" is implicit in the data, no effect/ref/setState.
+  const hudActive = events.some(
+    (e) =>
+      e.type === "incident.started" ||
+      e.type === "scene.state" ||
+      e.type === "map.hotspots" ||
+      e.type === "topology.built",
+  );
+
   return (
+    <>
+      {/* Live conversational HUD — overlays the landing once the workspace opens.
+          Its own orb takes over from the landing orb, and the agent drives every
+          panel/scene from the operator's speech over the contract event stream. */}
+      {hudActive && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 50,
+            animation: "qos-hud-in 0.9s ease-out both",
+          }}
+        >
+          <IncidentHUD
+            live
+            externalEvents={events}
+            onUserIntent={(text) => {
+              void publish("user.intent", { text, language: "en" });
+            }}
+            mic={{
+              enabled: !!call?.micEnabled,
+              status: micStatus,
+              onToggle: () => {
+                void toggleListening();
+              },
+            }}
+          />
+        </div>
+      )}
     <main
+      aria-hidden={hudActive}
       style={{
         position: "relative",
         height: "400vh",
@@ -1048,7 +1104,9 @@ export function CommandOSLanding() {
         @keyframes qos-bob  { 0%,100%{ transform:translateY(0) rotate(45deg); opacity:.4; } 50%{ transform:translateY(6px) rotate(45deg); opacity:1; } }
         @keyframes qos-pulse{ 0%,100%{ opacity:.3; } 50%{ opacity:1; } }
         @keyframes qos-ring { 0%{ box-shadow:0 0 0 0 rgba(255,45,143,.45); } 70%{ box-shadow:0 0 0 16px rgba(255,45,143,0); } 100%{ box-shadow:0 0 0 0 rgba(255,45,143,0); } }
+        @keyframes qos-hud-in { from { opacity:0; } to { opacity:1; } }
       `}</style>
     </main>
+    </>
   );
 }
