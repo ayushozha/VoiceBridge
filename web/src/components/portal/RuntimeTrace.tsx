@@ -175,32 +175,39 @@ function TraceDetail({ event }: { event: VoiceBridgeEvent }) {
   }
 }
 
-function TraceRow({ event }: { event: VoiceBridgeEvent }) {
+function TraceRow({ event, isFirst }: { event: VoiceBridgeEvent; isFirst: boolean }) {
   const sponsor = sponsorForEvent(event);
   const meta = sponsor ? SPONSOR_META[sponsor] : null;
   return (
-    <li className="relative pl-6">
+    <li className="relative pl-7">
+      {/* Timeline spine */}
+      <div className="absolute left-[9px] top-0 h-full w-px bg-vb-border/40" aria-hidden />
+      {/* Dot */}
       <span
-        className={`absolute left-0 top-1.5 inline-block h-2.5 w-2.5 rounded-full ${
-          meta ? "bg-current" : "bg-vb-border"
-        } ${meta?.accent ?? ""}`}
+        className={`absolute left-0 top-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border ${
+          meta
+            ? `border-current bg-vb-surface ${meta.accent}`
+            : "border-vb-border bg-vb-surface-2 text-vb-border"
+        } ${isFirst ? "shadow-[0_0_6px_currentColor] opacity-90" : ""}`}
         aria-hidden
-      />
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[13px] font-medium text-vb-text">{traceHeadline(event)}</span>
-        <span className="shrink-0 text-[10px] tabular-nums text-vb-muted">
-          {timeLabel(event.timestamp)}
-        </span>
-      </div>
-      <div className="mt-0.5 flex items-center gap-2">
+      >
+        <span className="h-1.5 w-1.5 rounded-full bg-current" />
+      </span>
+      <div className="rounded-lg border border-vb-border/40 bg-vb-surface-2/50 px-3 py-2.5">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="text-[13px] font-medium text-vb-text">{traceHeadline(event)}</span>
+          <span className="shrink-0 text-[10px] tabular-nums text-vb-muted">
+            {timeLabel(event.timestamp)}
+          </span>
+        </div>
         {meta && (
-          <span className={`text-[10px] font-semibold uppercase tracking-wide ${meta.accent}`}>
+          <span className={`mt-0.5 block text-[10px] font-semibold uppercase tracking-wide ${meta.accent}`}>
             {meta.label}
           </span>
         )}
-      </div>
-      <div className="mt-1">
-        <TraceDetail event={event} />
+        <div className="mt-1.5">
+          <TraceDetail event={event} />
+        </div>
       </div>
     </li>
   );
@@ -212,7 +219,7 @@ export function RuntimeTrace({ events }: { events: readonly VoiceBridgeEvent[] }
     <section className="flex h-full flex-col rounded-xl border border-vb-border bg-vb-surface p-5">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-sm font-medium text-vb-text">Runtime trace</h2>
-        <span className="text-[10px] uppercase tracking-widest text-vb-muted">
+        <span className="rounded-full border border-vb-border bg-vb-surface-2 px-2 py-0.5 text-[10px] uppercase tracking-widest text-vb-muted">
           {events.length} events
         </span>
       </div>
@@ -221,9 +228,9 @@ export function RuntimeTrace({ events }: { events: readonly VoiceBridgeEvent[] }
           Waiting for call events. Replay the demo or start a live call to populate the trace.
         </p>
       ) : (
-        <ol className="space-y-4 overflow-y-auto pr-1">
+        <ol className="space-y-3 overflow-y-auto pr-1">
           {ordered.map((event, i) => (
-            <TraceRow key={`${event.type}-${event.timestamp}-${i}`} event={event} />
+            <TraceRow key={`${event.type}-${event.timestamp}-${i}`} event={event} isFirst={i === 0} />
           ))}
         </ol>
       )}

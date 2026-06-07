@@ -77,24 +77,43 @@ export function deriveTranscript(events: VoiceBridgeEvent[]): TranscriptLine[] {
 
 const SPEAKER_META: Record<
   TranscriptLine["speaker"],
-  { label: string; align: string; bubble: string }
+  { label: string; align: string; bubble: string; avatarBg: string; avatarText: string; initial: string }
 > = {
   user: {
     label: "You",
     align: "items-end",
-    bubble: "bg-vb-accent/15 text-vb-text border-vb-accent/30",
+    bubble: "bg-vb-accent/15 text-vb-text border-vb-accent/30 shadow-[0_0_0_1px_rgba(79,140,255,0.08)]",
+    avatarBg: "bg-vb-accent/20",
+    avatarText: "text-vb-accent",
+    initial: "Y",
   },
   agent: {
     label: "VoiceBridge",
     align: "items-start",
     bubble: "bg-vb-surface-2 text-vb-text border-vb-border",
+    avatarBg: "bg-vb-accent-2/20",
+    avatarText: "text-vb-accent-2",
+    initial: "V",
   },
   insurer: {
     label: "Northstar rep",
     align: "items-start",
-    bubble: "bg-vb-surface text-vb-muted border-vb-border",
+    bubble: "bg-vb-surface text-vb-muted border-vb-border/60",
+    avatarBg: "bg-vb-surface-3",
+    avatarText: "text-vb-muted",
+    initial: "N",
   },
 };
+
+function Avatar({ meta }: { meta: (typeof SPEAKER_META)[TranscriptLine["speaker"]] }) {
+  return (
+    <div
+      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${meta.avatarBg} ${meta.avatarText}`}
+    >
+      {meta.initial}
+    </div>
+  );
+}
 
 export function TranscriptView({ lines }: { lines: TranscriptLine[] }) {
   const endRef = useRef<HTMLDivElement>(null);
@@ -112,19 +131,28 @@ export function TranscriptView({ lines }: { lines: TranscriptLine[] }) {
         ) : null}
         {lines.map((line) => {
           const meta = SPEAKER_META[line.speaker];
+          const isUser = line.speaker === "user";
           return (
-            <div key={line.id} className={`flex flex-col ${meta.align}`}>
-              <div className="mb-1 flex items-center gap-2 text-xs text-vb-muted">
-                <span className="font-medium">{meta.label}</span>
-                {line.language && LANG_LABEL[line.language] ? (
-                  <Pill tone="muted">{LANG_LABEL[line.language]}</Pill>
-                ) : null}
-                {line.spoken ? <Pill tone="approve">spoken</Pill> : null}
-              </div>
-              <div
-                className={`max-w-[85%] rounded-xl border px-3.5 py-2.5 text-sm leading-relaxed ${meta.bubble}`}
-              >
-                {line.text}
+            <div key={line.id} className={`flex gap-2 ${isUser ? "flex-row-reverse" : "flex-row"}`}>
+              <Avatar meta={meta} />
+              <div className={`flex max-w-[80%] flex-col gap-1 ${meta.align}`}>
+                <div className={`flex items-center gap-1.5 text-[11px] text-vb-muted ${isUser ? "flex-row-reverse" : ""}`}>
+                  <span className="font-medium">{meta.label}</span>
+                  {line.language && LANG_LABEL[line.language] ? (
+                    <Pill tone="muted">{LANG_LABEL[line.language]}</Pill>
+                  ) : null}
+                  {line.spoken ? (
+                    <span className="flex items-center gap-0.5 rounded-full bg-vb-accent-2/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-vb-accent-2">
+                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                      </svg>
+                      spoken
+                    </span>
+                  ) : null}
+                </div>
+                <div className={`rounded-xl border px-3.5 py-2.5 text-sm leading-relaxed ${meta.bubble}`}>
+                  {line.text}
+                </div>
               </div>
             </div>
           );

@@ -49,8 +49,15 @@ export function OutcomeCard({ events }: { events: readonly VoiceBridgeEvent[] })
   if (!outcome) {
     return (
       <section className="rounded-xl border border-vb-border bg-vb-surface p-5">
-        <h2 className="text-sm font-medium text-vb-text">Outcome</h2>
-        <p className="mt-2 text-sm text-vb-muted">
+        <div className="flex items-center gap-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-vb-surface-2 text-vb-muted">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
+            </svg>
+          </div>
+          <h2 className="text-sm font-medium text-vb-text">Outcome</h2>
+        </div>
+        <p className="mt-3 text-sm text-vb-muted">
           The outcome card appears here when the assisted call completes.
         </p>
       </section>
@@ -58,16 +65,23 @@ export function OutcomeCard({ events }: { events: readonly VoiceBridgeEvent[] })
   }
 
   return (
-    <section className="rounded-xl border border-vb-accent/40 bg-vb-surface p-5 ring-1 ring-vb-accent/20">
+    <section className="rounded-xl border border-vb-accent/40 bg-vb-surface p-5 shadow-[0_0_0_1px_rgba(79,140,255,0.1),0_0_32px_rgba(79,140,255,0.06)] animate-fade-up">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-base font-semibold text-vb-text">Call outcome</h2>
+        <div className="flex items-center gap-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-vb-accent/15 text-vb-accent">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </div>
+          <h2 className="text-base font-semibold text-vb-text">Call outcome</h2>
+        </div>
         <StatusBadge status={outcome.claim_status} />
       </div>
 
-      <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+      <div className="grid grid-cols-2 gap-x-6 gap-y-4 rounded-lg border border-vb-border/60 bg-vb-surface-2/40 p-4">
         {outcome.claim_number && (
           <Field label="Claim number">
-            <code className="text-vb-text">{outcome.claim_number}</code>
+            <code className="font-mono text-vb-accent">{outcome.claim_number}</code>
           </Field>
         )}
         {outcome.deadline && <Field label="Deadline">{outcome.deadline}</Field>}
@@ -78,7 +92,7 @@ export function OutcomeCard({ events }: { events: readonly VoiceBridgeEvent[] })
               {outcome.missing_documents.map((d) => (
                 <span
                   key={d}
-                  className="rounded bg-vb-surface-2 px-1.5 py-0.5 text-xs text-vb-text"
+                  className="rounded bg-vb-warn/10 px-1.5 py-0.5 text-xs text-vb-warn"
                 >
                   {d}
                 </span>
@@ -110,8 +124,8 @@ export function OutcomeCard({ events }: { events: readonly VoiceBridgeEvent[] })
           <Field label="Approvals">
             <ul className="space-y-0.5">
               {outcome.approvals.map((a, i) => (
-                <li key={i} className="text-sm text-vb-text">
-                  · {a}
+                <li key={i} className="flex items-center gap-1.5 text-sm text-vb-text">
+                  <span className="text-vb-accent-2">·</span> {a}
                 </li>
               ))}
             </ul>
@@ -120,7 +134,9 @@ export function OutcomeCard({ events }: { events: readonly VoiceBridgeEvent[] })
 
         {outcome.language_switch && (
           <Field label="Language switch">
-            {outcome.language_switch.from} → {outcome.language_switch.to}
+            <span className="font-medium">{outcome.language_switch.from}</span>
+            <span className="mx-1 text-vb-muted">→</span>
+            <span className="font-medium text-vb-accent">{outcome.language_switch.to}</span>
           </Field>
         )}
 

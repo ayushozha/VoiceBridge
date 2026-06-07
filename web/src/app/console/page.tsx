@@ -225,64 +225,81 @@ function ConsoleInner() {
   return (
     <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
       {/* Header */}
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1">
-          <p className="text-xs font-medium uppercase tracking-widest text-vb-accent">
-            {DEMO.tenantDisplayName} · User Console
-          </p>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Hi {DEMO.userDisplayName} — drive your call without speaking
-          </h1>
-          <p className="text-sm text-vb-muted">
-            Case <code className="text-vb-text">{DEMO.caseId}</code>
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {call ? (
-            <>
-              <Pill
-                tone={
-                  call.status === "connected"
-                    ? "approve"
-                    : call.status === "error"
-                      ? "warn"
-                      : call.status === "connecting"
+      <header className={[
+        "relative rounded-2xl border p-5 transition-all duration-500",
+        live
+          ? "border-vb-accent-2/40 bg-vb-surface glow-approve"
+          : "border-vb-border bg-vb-surface",
+      ].join(" ")}>
+        {live && (
+          <div
+            className="pointer-events-none absolute inset-0 rounded-2xl opacity-[0.04]"
+            style={{ background: "radial-gradient(ellipse at 50% 0%, #34d9a5 0%, transparent 70%)" }}
+          />
+        )}
+        <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-widest text-vb-accent">
+              {live && <span className="inline-block h-1.5 w-1.5 rounded-full bg-vb-accent-2 animate-live" />}
+              {DEMO.tenantDisplayName} · User Console
+            </p>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Hi {DEMO.userDisplayName} — drive your call without speaking
+            </h1>
+            <p className="text-sm text-vb-muted">
+              Case <code className="rounded bg-vb-surface-2 px-1.5 py-0.5 text-vb-text">{DEMO.caseId}</code>
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {call ? (
+              <>
+                <Pill
+                  tone={
+                    call.status === "connected"
+                      ? "approve"
+                      : call.status === "error"
                         ? "warn"
-                        : "muted"
-                }
-              >
-                {call.status === "connected"
-                  ? "live call"
-                  : call.status === "connecting"
-                    ? "connecting…"
-                    : call.status === "error"
-                      ? "connection error"
-                      : "ready"}
-              </Pill>
-              {live && call.micEnabled && (
-                <Pill tone="approve">mic on</Pill>
-              )}
-              {live && !call.micEnabled && (
-                <Pill tone="warn">mic off</Pill>
-              )}
-              {call.status === "connected" ? (
-                <ConsoleButton tone="neutral" onClick={() => void call.disconnect()}>
-                  End call
-                </ConsoleButton>
-              ) : call.status === "error" ? (
-                <ConsoleButton tone="accent" onClick={() => void call.connect()}>
-                  Reconnect
-                </ConsoleButton>
-              ) : (
-                <ConsoleButton tone="accent" onClick={() => void call.connect()}>
-                  Connect
-                </ConsoleButton>
-              )}
-            </>
-          ) : (
-            <Pill tone="muted">mock demo</Pill>
-          )}
-          <Pill tone="accent">{language === "es" ? "Español" : "English"}</Pill>
+                        : call.status === "connecting"
+                          ? "warn"
+                          : "muted"
+                  }
+                >
+                  {call.status === "connected"
+                    ? "live call"
+                    : call.status === "connecting"
+                      ? "connecting…"
+                      : call.status === "error"
+                        ? "connection error"
+                        : "ready"}
+                </Pill>
+                {live && call.micEnabled && (
+                  <Pill tone="approve">
+                    <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-vb-accent-2 animate-live" />
+                    mic on
+                  </Pill>
+                )}
+                {live && !call.micEnabled && (
+                  <Pill tone="warn">mic off</Pill>
+                )}
+                {call.status === "connected" ? (
+                  <ConsoleButton tone="neutral" onClick={() => void call.disconnect()}>
+                    End call
+                  </ConsoleButton>
+                ) : call.status === "error" ? (
+                  <ConsoleButton tone="accent" onClick={() => void call.connect()}>
+                    Reconnect
+                  </ConsoleButton>
+                ) : (
+                  <ConsoleButton tone="accent" onClick={() => void call.connect()}>
+                    Connect
+                  </ConsoleButton>
+                )}
+              </>
+            ) : (
+              <Pill tone="muted">mock demo</Pill>
+            )}
+            <Pill tone="accent">{language === "es" ? "Español" : "English"}</Pill>
+          </div>
         </div>
       </header>
 

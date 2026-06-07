@@ -34,24 +34,31 @@ export function LanguageSwitch({
                 if (!active) onSwitch(current, lang);
               }}
               className={[
-                "rounded-lg border px-4 py-2 text-sm transition",
+                "relative rounded-lg border px-4 py-2 text-sm font-medium transition-all duration-150 active:scale-[0.97]",
                 active
-                  ? "border-vb-accent bg-vb-accent/15 text-vb-accent font-medium"
-                  : "border-vb-border bg-vb-surface-2 text-vb-text hover:border-vb-accent",
+                  ? "border-vb-accent bg-vb-accent/15 text-vb-accent shadow-[0_0_0_1px_rgba(79,140,255,0.2)] glow-accent"
+                  : "border-vb-border bg-vb-surface-2 text-vb-text hover:border-vb-accent/60 hover:bg-vb-surface-3",
               ].join(" ")}
             >
+              {active && (
+                <span className="absolute -right-1 -top-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-vb-accent">
+                  <span className="h-1 w-1 rounded-full bg-vb-bg" />
+                </span>
+              )}
               {LABELS[lang] ?? lang}
             </button>
           );
         })}
-        {current === "es" ? <Pill tone="accent">en español</Pill> : null}
       </div>
       {current !== "es" ? (
         <button
           type="button"
           onClick={() => onSwitch(current, "es")}
-          className="mt-3 text-xs text-vb-muted underline-offset-2 hover:text-vb-accent hover:underline"
+          className="mt-3 flex items-center gap-1 text-xs text-vb-muted transition-colors hover:text-vb-accent"
         >
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+          </svg>
           &ldquo;Responde en español&rdquo;
         </button>
       ) : null}

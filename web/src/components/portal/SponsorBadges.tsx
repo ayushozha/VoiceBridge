@@ -89,12 +89,16 @@ export function SponsorBadges({
             <li
               key={id}
               title={meta.role}
-              className={`rounded-lg border bg-vb-surface-2 p-3 transition ${
-                isActive ? "border-vb-accent ring-1 ring-vb-accent/40" : "border-vb-border"
+              className={`rounded-lg border bg-vb-surface-2 p-3 transition-all duration-200 ${
+                isActive
+                  ? "border-vb-accent/60 bg-vb-accent/5 shadow-[0_0_0_1px_rgba(79,140,255,0.1),0_0_12px_rgba(79,140,255,0.06)]"
+                  : "border-vb-border hover:border-vb-border-subtle"
               }`}
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-medium text-vb-text">{meta.label}</span>
+                <span className={`text-sm font-semibold ${isActive ? "text-vb-text" : "text-vb-text/80"}`}>
+                  {meta.label}
+                </span>
                 <span
                   className={`rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${STATUS_STYLE[status]}`}
                 >
@@ -105,13 +109,13 @@ export function SponsorBadges({
                 {meta.role}
               </p>
               <span
-                className={`mt-2 flex items-center gap-1 text-[10px] ${
-                  isActive ? "text-vb-accent" : "text-vb-muted/60"
+                className={`mt-2 flex items-center gap-1 text-[10px] font-medium ${
+                  isActive ? "text-vb-accent" : "text-vb-muted/50"
                 }`}
               >
                 <span
                   className={`inline-block h-1.5 w-1.5 rounded-full ${
-                    isActive ? "bg-vb-accent" : "bg-vb-border"
+                    isActive ? "bg-vb-accent animate-live" : "bg-vb-border"
                   }`}
                 />
                 {isActive ? "active this call" : "idle"}

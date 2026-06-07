@@ -36,21 +36,25 @@ export function CorrectionBar({
               tone={done ? "approve" : "neutral"}
               onClick={() => onCorrect(kind)}
             >
+              {done ? (
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              ) : null}
               {LABEL[kind]}
-              {done ? " ✓" : ""}
             </ConsoleButton>
           );
         })}
       </div>
       {applied.size > 0 ? (
-        <p className="mt-3 flex flex-wrap items-center gap-2 text-xs text-vb-muted">
-          Learned this call:
+        <div className="mt-3 flex flex-wrap items-center gap-1.5 rounded-lg border border-vb-accent-2/20 bg-vb-accent-2/5 px-3 py-2">
+          <span className="text-[11px] text-vb-muted">Learned this call:</span>
           {[...applied].map((k) => (
             <Pill key={k} tone="approve">
               {LABEL[k]}
             </Pill>
           ))}
-        </p>
+        </div>
       ) : null}
     </Panel>
   );

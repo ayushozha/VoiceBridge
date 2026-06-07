@@ -35,7 +35,7 @@ export function IntentInput({
   }
 
   return (
-    <Panel title="Say something" subtitle="text or quick action">
+    <Panel title="Say something" subtitle="Enter or quick-tap">
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -53,26 +53,39 @@ export function IntentInput({
             }
           }}
           placeholder="Type what you want to say or ask…"
-          rows={2}
+          rows={3}
           disabled={disabled}
-          className="w-full resize-none rounded-lg border border-vb-border bg-vb-bg px-3 py-2.5 text-sm text-vb-text placeholder:text-vb-muted focus:border-vb-accent focus:outline-none disabled:opacity-50"
+          className={[
+            "w-full resize-none rounded-xl border bg-vb-bg px-4 py-3 text-sm text-vb-text",
+            "placeholder:text-vb-muted/60 transition-all duration-150",
+            "focus:outline-none focus:ring-2 focus:ring-vb-accent/40",
+            "disabled:opacity-50",
+            text.trim()
+              ? "border-vb-accent/50 shadow-[0_0_0_1px_rgba(79,140,255,0.15)]"
+              : "border-vb-border hover:border-vb-border-subtle",
+          ].join(" ")}
         />
         <div className="flex items-center justify-between gap-3">
-          <span className="text-xs text-vb-muted">Enter to send · Shift+Enter for a new line</span>
+          <span className="text-[11px] text-vb-muted/70">
+            Enter to send &middot; Shift+Enter for new line
+          </span>
           <ConsoleButton type="submit" tone="accent" disabled={disabled || !text.trim()}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" />
+            </svg>
             Send
           </ConsoleButton>
         </div>
       </form>
 
-      <div className="mt-4 flex flex-wrap gap-2">
+      <div className="mt-4 flex flex-wrap gap-1.5">
         {QUICK_INTENTS.map((q) => (
           <button
             key={q}
             type="button"
             disabled={disabled}
             onClick={() => send(q)}
-            className="rounded-full border border-vb-border bg-vb-surface-2 px-3 py-1.5 text-xs text-vb-text transition hover:border-vb-accent disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-full border border-vb-border bg-vb-surface-2 px-3 py-1.5 text-xs text-vb-muted transition-all duration-150 hover:border-vb-accent/60 hover:bg-vb-surface-3 hover:text-vb-text disabled:cursor-not-allowed disabled:opacity-40"
           >
             {q}
           </button>
