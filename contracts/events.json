@@ -1,0 +1,74 @@
+{
+  "$comment": "Canonical source of truth for the VoiceBridge surface<->brain contract. TS and Python mirrors are hand-derived from this. Derived from tasks.md (Event Contract) and spec.md (Agent Tools).",
+  "version": "2026-06-07",
+  "transport": {
+    "channel": "livekit-data",
+    "topic": "voicebridge.events",
+    "encoding": "utf-8-json",
+    "envelope": ["type", "tenant_id", "user_id", "case_id", "timestamp", "payload"]
+  },
+  "demo": {
+    "tenant_id": "northstar_insurance",
+    "tenant_display_name": "Northstar Insurance",
+    "user_id": "ayush_demo",
+    "user_display_name": "Ayush",
+    "case_id": "home_claim_H-48291",
+    "claim_number": "H-48291",
+    "languages": ["en", "es"]
+  },
+  "event_types": [
+    "call.started",
+    "call.agent_joined",
+    "call.audio_ready",
+    "memory.recalled",
+    "knowledge.retrieved",
+    "consent.requested",
+    "consent.approved",
+    "consent.denied",
+    "guardrail.checked",
+    "language.switched",
+    "voice.spoken",
+    "memory.written",
+    "outcome.created",
+    "audit.saved",
+    "user.intent",
+    "user.choice",
+    "user.correction",
+    "agent.utterance",
+    "insurer.utterance"
+  ],
+  "sponsors": [
+    "livekit",
+    "moss",
+    "unsiloed",
+    "truefoundry",
+    "qwen",
+    "minimax",
+    "elevenlabs",
+    "aws"
+  ],
+  "agent_tools": [
+    "search_business_knowledge",
+    "recall_customer_context",
+    "remember_call_event",
+    "check_sensitive_disclosure",
+    "parse_business_document",
+    "route_guarded_model_call",
+    "detect_language_switch",
+    "speak_response"
+  ],
+  "sensitive_fields": [
+    "claim_number",
+    "policy_id",
+    "address",
+    "date_of_loss",
+    "phone_number",
+    "date_of_birth",
+    "ssn",
+    "account_number",
+    "payment_information",
+    "caregiver_contact"
+  ],
+  "consent_rules": ["ask_every_time", "ask_first_then_remember", "never_share", "auto_share"],
+  "correction_kinds": ["less_formal", "shorter", "slower", "ask_first_next_time"]
+}

@@ -1,0 +1,20 @@
+{
+  "name": "voicebridge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "VoiceBridge - business-deployed conversational access layer for high-stakes insurance/financial phone workflows",
+  "packageManager": "pnpm@10.30.1",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=10.15.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @voicebridge/web dev",
+    "build": "pnpm --filter @voicebridge/contracts build && pnpm --filter @voicebridge/web build",
+    "lint": "pnpm --filter @voicebridge/web lint",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "agent:dev": "cd agent && uv run python -m voicebridge_agent.agent dev",
+    "agent:console": "cd agent && uv run python -m voicebridge_agent.agent console",
+    "agent:setup": "cd agent && uv sync && uv run --module livekit.agents download-files"
+  }
+}

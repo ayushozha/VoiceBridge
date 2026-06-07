@@ -1,0 +1,50 @@
+[project]
+name = "voicebridge-agent"
+version = "0.1.0"
+description = "VoiceBridge LiveKit voice agent (call transport + voice path). Surface side: Agents 1 & 2."
+requires-python = ">=3.10,<3.15"
+dependencies = [
+  # Core LiveKit Agents (latest 1.5.x). The MiniMax first-party plugin pins
+  # livekit-agents==1.2.9 and is therefore intentionally NOT used; MiniMax is
+  # implemented as our own TTS adapter (see voicebridge_agent/voice/minimax.py)
+  # so the project stays on the latest core. ElevenLabs is the first-party
+  # plugin and the reliable default voice.
+  # 1.5.17 is the latest *stable* release; 1.5.18 was yanked ("not ready for
+  # release") and 1.6.x is pre-release only. Pin the whole family to 1.5.17.
+  "livekit-agents[codecs]==1.5.17",
+  "livekit-plugins-elevenlabs==1.5.17",
+  "livekit-plugins-openai==1.5.17",
+  "livekit-plugins-silero==1.5.17",
+  "livekit-plugins-turn-detector==1.5.17",
+  "python-dotenv>=1.2.2",
+  "aiohttp>=3.14.0",
+  # Shared contract (local path dependency)
+  "voicebridge-contract",
+]
+
+[project.optional-dependencies]
+dev = [
+  "ruff>=0.9.0",
+  "pytest>=8.3.0",
+  "pytest-asyncio>=0.25.0",
+]
+
+[tool.uv.sources]
+voicebridge-contract = { path = "../contracts/python", editable = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["voicebridge_agent"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

@@ -1,0 +1,42 @@
+# --- Secrets ---
+.env
+.env.local
+.env.*.local
+*.pem
+
+# --- Node ---
+node_modules/
+.pnpm-store/
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+.turbo/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.uv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# --- LiveKit agent model files (downloaded at setup) ---
+agent/.lk-models/
+
+# --- Logs / OS / editor ---
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# --- Local audit fallback store ---
+.audit/
+*.audit.jsonl

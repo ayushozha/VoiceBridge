@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+:root {
+  /* Northstar Insurance demo palette */
+  --vb-bg: #0b1020;
+  --vb-surface: #131a2e;
+  --vb-surface-2: #1b2440;
+  --vb-border: #2a3658;
+  --vb-text: #e8edf7;
+  --vb-text-muted: #9aa6c4;
+  --vb-accent: #4f8cff;
+  --vb-accent-2: #38d9a9;
+  --vb-warn: #ffb454;
+  --vb-danger: #ff6b6b;
+}
+
+@theme inline {
+  --color-vb-bg: var(--vb-bg);
+  --color-vb-surface: var(--vb-surface);
+  --color-vb-surface-2: var(--vb-surface-2);
+  --color-vb-border: var(--vb-border);
+  --color-vb-text: var(--vb-text);
+  --color-vb-muted: var(--vb-text-muted);
+  --color-vb-accent: var(--vb-accent);
+  --color-vb-accent-2: var(--vb-accent-2);
+  --color-vb-warn: var(--vb-warn);
+  --color-vb-danger: var(--vb-danger);
+}
+
+html,
+body {
+  background: var(--vb-bg);
+  color: var(--vb-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
