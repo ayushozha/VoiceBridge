@@ -133,20 +133,12 @@ async def test_core_mic_loop_bootstraps_moss_memory_events() -> None:
     await _bootstrap_core_memory(engines)
 
     decoded = [decode_event(packet[0]) for packet in room.local_participant.packets]
-    assert [event.type for event in decoded if event is not None][:2] == [
-        "scene.state",
-        "scene.state",
-    ]
+    assert [event.type for event in decoded if event is not None] == ["memory.recalled"]
 
     recall = next(event for event in decoded if event and event.type == "memory.recalled")
-    similar = next(
-        event for event in decoded if event and event.type == "similar_incident.recalled"
-    )
 
     assert recall is not None
     assert recall.mode == "live"
     assert recall.payload["source"] == "moss"
     assert recall.payload["integration_mode"] == "live"
-    assert similar is not None
-    assert similar.mode == "live"
-    assert similar.payload["provenance"]["store"] == "moss"
+    assert recall.payload["prior_call"]["provenance"]["store"] == "moss"

@@ -7,6 +7,7 @@ import * as THREE from "three";
 import { useMaybeCall } from "@/components/CallProvider";
 import { IncidentHUD } from "@/components/IncidentHUD";
 import { useVoiceBridgeEvents } from "@/lib/useVoiceBridgeEvents";
+import { useAudioLevel } from "@/lib/useAudioLevel";
 
 /* ------------------------------------------------------------------ */
 /*  Math helpers                                                         */
@@ -320,7 +321,7 @@ function createScene(host: HTMLElement) {
 
   scene.add(new THREE.AmbientLight(0xffffff, 1.0));
 
-  const state = { progress: 0, vel: 0, px: 0, py: 0, listening: false };
+  const state = { progress: 0, vel: 0, px: 0, py: 0, listening: false, audio: 0, audioTarget: 0 };
   let streamZ = 0;
 
   function onPointer(e: PointerEvent) {
@@ -348,9 +349,17 @@ function createScene(host: HTMLElement) {
     const warp = smooth(0.05, 0.62, p);
     const arrival = smooth(0.7, 1.0, p);
     const appr = p * p * (3 - 2 * p);
+    // Smooth the real mic+agent level toward its target each frame.
+    state.audio += (state.audioTarget - state.audio) * 0.18;
+    // Real audio drives the orb when present; otherwise fall back to the
+    // synthetic "listening" sine so the orb still animates before/without audio.
     const listen = state.listening
-      ? arrival * (0.18 + 0.32 * Math.max(0, Math.sin(t * 5.5)) * (0.5 + 0.5 * Math.sin(t * 1.7)))
-      : 0;
+      ? arrival *
+        Math.max(
+          state.audio * 0.6,
+          0.18 + 0.32 * Math.max(0, Math.sin(t * 5.5)) * (0.5 + 0.5 * Math.sin(t * 1.7)),
+        )
+      : arrival * state.audio * 0.6;
     const energy = clamp(0.25 + warp * 0.5 + Math.abs(state.vel) * 22 + arrival * 0.3 + listen);
     const speed = 0.05 + warp * 1.15 + Math.abs(state.vel) * 24;
     streamZ += speed;
@@ -426,6 +435,7 @@ function createScene(host: HTMLElement) {
     setProgress(v: number) { state.progress = clamp(v); },
     setVelocity(v: number) { state.vel = v; },
     setListening(b: boolean) { state.listening = b; },
+    setAudioLevel(v: number) { state.audioTarget = clamp(v); },
     resize,
     dispose() {
       cancelAnimationFrame(raf);
@@ -505,6 +515,13 @@ export function CommandOSLanding() {
   useEffect(() => {
     sceneRef.current?.setListening(listening);
   }, [listening]);
+
+  // Drive the landing orb from the REAL mic + agent audio level (0 when no
+  // live room is connected, so the orb keeps its scroll-driven baseline).
+  const audioLevel = useAudioLevel(call?.room);
+  useEffect(() => {
+    sceneRef.current?.setAudioLevel(audioLevel);
+  }, [audioLevel]);
 
   useEffect(() => {
     if (!call) return;
@@ -598,9 +615,13 @@ export function CommandOSLanding() {
   const hudActive = events.some(
     (e) =>
       e.type === "incident.started" ||
-      e.type === "scene.state" ||
       e.type === "map.hotspots" ||
-      e.type === "topology.built",
+      e.type === "topology.built" ||
+      e.type === "failure.localized" ||
+      e.type === "mitigation.proposed" ||
+      e.type === "guardrail.checked" ||
+      e.type === "dashboard.generated" ||
+      e.type === "report.created",
   );
 
   return (

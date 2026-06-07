@@ -15,8 +15,15 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
-import type { VoiceBridgeEvent } from "@voicebridge/contracts";
+import { useMaybeRoomContext } from "@livekit/components-react";
+import type {
+  HudComponentPayload,
+  VoiceBridgeEvent,
+  WebSearchResult,
+} from "@voicebridge/contracts";
 import { INCIDENT_MOCK_STEPS } from "@/lib/incidentMock";
+import { useAudioLevel } from "@/lib/useAudioLevel";
+import { DynamicPanel } from "@/components/DynamicPanel";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Three.js helpers (self-contained, no CDN)
@@ -246,6 +253,8 @@ interface HUDEngine {
   clearHighlight: () => void;
   getScreenPos: (key: string) => { x: number; y: number; behind: boolean } | null;
   setSpeaking: (on: boolean) => void;
+  /** Drive the orb from a real 0..1 audio level (mic + agent). */
+  setAudioLevel: (level: number) => void;
   dispose: () => void;
 }
 
@@ -497,8 +506,14 @@ function createHUDScene(host: HTMLElement): HUDEngine {
   }
 
   // ── Speaking energy ───────────────────────────────────────────────────────
-  const sstate = { speaking: 0, target: 0, px: 0, py: 0 };
+  // `speaking` is the legacy boolean-driven sine envelope (kept for the typing
+  // animation / demo mode). `audio` is the REAL 0..1 mic+agent level when a
+  // live room is connected; when present it drives the orb directly.
+  const sstate = { speaking: 0, target: 0, px: 0, py: 0, audio: 0, audioTarget: 0 };
   function setSpeaking(on: boolean) { sstate.target = on ? 1 : 0; }
+  function setAudioLevel(level: number) {
+    sstate.audioTarget = Math.max(0, Math.min(1, level));
+  }
 
   const onPointerMove = (e: PointerEvent) => {
     const r = host.getBoundingClientRect();
@@ -523,7 +538,17 @@ function createHUDScene(host: HTMLElement): HUDEngine {
   function frame() {
     const t = clock.getElapsedTime();
     sstate.speaking += (sstate.target - sstate.speaking) * 0.08;
-    const energy = 0.32 + sstate.speaking * (0.45 + 0.35 * Math.abs(Math.sin(t * 6)) * Math.abs(Math.sin(t * 1.7)));
+    // Smooth the real audio level a touch more (the hook already smooths it;
+    // this just keeps the orb from jittering between frames).
+    sstate.audio += (sstate.audioTarget - sstate.audio) * 0.18;
+    // Idle baseline keeps the orb breathing when silent. The real mic+agent
+    // level (sstate.audio) drives the visible pulse; the legacy boolean-driven
+    // sine envelope (sstate.speaking) layers in for the demo / typing path so
+    // both modes animate. With a live audio source, sstate.audio dominates.
+    const idle = 0.3;
+    const liveEnergy = sstate.audio * 0.95;
+    const demoEnergy = sstate.speaking * (0.42 + 0.32 * Math.abs(Math.sin(t * 6)) * Math.abs(Math.sin(t * 1.7)));
+    const energy = idle + Math.max(liveEnergy, demoEnergy);
 
     camera.position.lerp(camT.pos.clone().add(new THREE.Vector3(sstate.px * 0.5, -sstate.py * 0.3, 0)), 0.05);
     camera.lookAt(camT.look);
@@ -597,6 +622,7 @@ function createHUDScene(host: HTMLElement): HUDEngine {
     clearHighlight,
     getScreenPos,
     setSpeaking,
+    setAudioLevel,
     dispose() {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", onResize);
@@ -704,6 +730,19 @@ export function IncidentHUD({ externalEvents, onUserIntent, live, mic }: Inciden
   const [isAuto, setIsAuto] = useState(false);
   const [userInput, setUserInput] = useState("");
   const [clock, setClock] = useState("");
+
+  // Live room (present only inside CallProvider; null in standalone demo mode).
+  const room = useMaybeRoomContext();
+  // Real mic + agent audio level, 0..1, rAF-smoothed by the hook.
+  const audioLevel = useAudioLevel(room);
+
+  // Agent-built dynamic panels, keyed by component id. render upserts, patch
+  // shallow-merges, remove deletes. Insertion order is preserved for stable
+  // layout (Object key order is insertion order for string keys).
+  const [dynamicComponents, setDynamicComponents] = useState<Record<string, HudComponentPayload>>({});
+  // Web-search results surfaced into the browser-research float.
+  const [webSearch, setWebSearch] = useState<{ query: string; results: WebSearchResult[] } | null>(null);
+
   const typingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const demoPlayerRef = useRef<{ stepIndex: number; running: boolean; timers: ReturnType<typeof setTimeout>[] }>({
@@ -727,6 +766,12 @@ export function IncidentHUD({ externalEvents, onUserIntent, live, mic }: Inciden
     hudRef.current = engine;
     return () => { engine.dispose(); hudRef.current = null; };
   }, []);
+
+  // Feed the real mic + agent audio level into the orb. The hook returns 0 when
+  // no live room is connected, so the orb falls back to its idle baseline.
+  useEffect(() => {
+    hudRef.current?.setAudioLevel(audioLevel);
+  }, [audioLevel]);
 
   // Type a reply with cursor animation
   const typeReply = useCallback((text: string) => {
@@ -855,10 +900,65 @@ export function IncidentHUD({ externalEvents, onUserIntent, live, mic }: Inciden
           }
           break;
         }
+
+        case "hud.component": {
+          // Optional scene animation lives in the same beat as the component.
+          const sceneHint = payload["scene_hint"] as string | undefined;
+          if (sceneHint) {
+            const sceneName = visualToScene(sceneHint);
+            if (sceneName !== prev.scene) {
+              next.scene = sceneName;
+              hudRef.current?.setScene(sceneName);
+            }
+          }
+          break;
+        }
+
+        case "web.search.results": {
+          // Reuse the existing browser-research float to show the results.
+          next.showBrowser = true;
+          break;
+        }
       }
 
       return next;
     });
+
+    // Registry + web-search updates live outside the setHudState updater so the
+    // updater stays a function of prev HUD state only (the dynamic registry is
+    // its own piece of state). render = upsert, patch = shallow-merge, remove =
+    // delete; insertion order is preserved so layout is stable across patches.
+    if (type === "hud.component") {
+      const data = event.payload as HudComponentPayload;
+      setDynamicComponents((prevMap) => {
+        if (data.op === "remove") {
+          if (!(data.id in prevMap)) return prevMap;
+          const copy = { ...prevMap };
+          delete copy[data.id];
+          return copy;
+        }
+        if (data.op === "patch") {
+          const existing = prevMap[data.id];
+          if (!existing) {
+            // Patch before any render — treat it as the initial render.
+            return { ...prevMap, [data.id]: data };
+          }
+          // Shallow-merge; items are replaced wholesale when present.
+          const merged: HudComponentPayload = {
+            ...existing,
+            ...data,
+            op: "render",
+            items: data.items !== undefined ? data.items : existing.items,
+          };
+          return { ...prevMap, [data.id]: merged };
+        }
+        // op === "render": create or replace by id.
+        return { ...prevMap, [data.id]: { ...data, op: "render" } };
+      });
+    } else if (type === "web.search.results") {
+      const data = event.payload as { query: string; results: WebSearchResult[] };
+      setWebSearch({ query: data.query, results: data.results ?? [] });
+    }
   }, [typeReply]);
 
   // External event stream (live LiveKit). Apply EVERY new event, not just the
@@ -906,6 +1006,10 @@ export function IncidentHUD({ externalEvents, onUserIntent, live, mic }: Inciden
 
   // Auto-play timer
   useEffect(() => {
+    if (live) {
+      if (autoTimerRef.current) clearTimeout(autoTimerRef.current);
+      return;
+    }
     if (!isAuto) {
       if (autoTimerRef.current) clearTimeout(autoTimerRef.current);
       return;
@@ -921,7 +1025,7 @@ export function IncidentHUD({ externalEvents, onUserIntent, live, mic }: Inciden
       goNext();
     }, delay);
     return () => { if (autoTimerRef.current) clearTimeout(autoTimerRef.current); };
-  }, [isAuto, beat, goNext]);
+  }, [isAuto, beat, goNext, live]);
 
   // Start demo on mount (beat 0). Suppressed in live mode — the agent drives
   // the HUD from the operator's speech instead of the scripted sequence.
@@ -934,6 +1038,7 @@ export function IncidentHUD({ externalEvents, onUserIntent, live, mic }: Inciden
 
   // Keyboard controls
   useEffect(() => {
+    if (live) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "ArrowRight" || e.key === " ") { e.preventDefault(); setIsAuto(false); goNext(); }
       else if (e.key === "ArrowLeft") { setIsAuto(false); goPrev(); }
@@ -941,7 +1046,7 @@ export function IncidentHUD({ externalEvents, onUserIntent, live, mic }: Inciden
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [goNext, goPrev]);
+  }, [goNext, goPrev, live]);
 
   // Sync callout position each frame via CSS variable (callout follows 3D anchor)
   const calloutRef = useRef<HTMLDivElement>(null);
@@ -1046,6 +1151,11 @@ export function IncidentHUD({ externalEvents, onUserIntent, live, mic }: Inciden
         .arow{display:flex;justify-content:space-between;font-family:'JetBrains Mono';font-size:12px;padding:7px 0;border-bottom:1px dashed rgba(57,192,255,.14);}
         .arow .k{color:var(--mist);}.arow .v{color:var(--ink);}.arow .v.warn{color:var(--amber);}.arow .v.ok{color:var(--green);}
         .stamp{margin-top:14px;font-family:'Space Grotesk';font-weight:700;letter-spacing:.16em;font-size:13px;color:var(--amber);border:1.5px solid var(--amber);display:inline-block;padding:7px 14px;transform:rotate(-3deg);text-transform:uppercase;box-shadow:0 0 16px rgba(255,194,74,.3);}
+        .hud-mic{height:42px;min-width:136px;display:flex;align-items:center;justify-content:center;gap:9px;border:1px solid rgba(57,192,255,.35);background:rgba(10,28,46,.68);color:var(--ink);font-family:'Space Grotesk';font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;clip-path:polygon(0 0,calc(100% - 9px) 0,100% 9px,100% 100%,9px 100%,0 calc(100% - 9px));}
+        .hud-mic.on{border-color:rgba(34,224,160,.58);box-shadow:0 0 18px rgba(34,224,160,.18),inset 0 0 18px rgba(34,224,160,.06);}
+        .hud-mic:disabled{opacity:.48;cursor:default;}
+        .hud-mic .orb{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:rgba(120,140,180,.38);color:#fff;flex:none;}
+        .hud-mic.on .orb{background:linear-gradient(135deg,#22e0a0,#2f6bff);box-shadow:0 0 13px rgba(34,224,160,.45);}
         .hud-input{flex:1;background:rgba(57,192,255,.06);border:1px solid var(--frame);color:var(--ink);font-family:'Space Grotesk';font-size:13px;padding:10px 14px;outline:none;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px));}
         .hud-input::placeholder{color:var(--mist);}
         .hud-input:focus{border-color:var(--cyan);box-shadow:0 0 10px rgba(57,192,255,.15);}
@@ -1053,6 +1163,7 @@ export function IncidentHUD({ externalEvents, onUserIntent, live, mic }: Inciden
         .res.on{opacity:1!important;transform:none;}
         .res .fav{width:18px;height:18px;flex:none;background:linear-gradient(135deg,var(--cyan),var(--blue));clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);}
         .res .rt{font-size:12px;color:var(--ink);line-height:1.35;}.res .rt i{display:block;font-style:normal;font-family:'JetBrains Mono';font-size:10.5px;color:var(--green);}
+        @keyframes hud-dyn-pulse{0%{opacity:.55;box-shadow:inset 0 0 24px rgba(57,192,255,.06),0 0 0 1px rgba(57,192,255,.5),0 14px 40px rgba(0,0,0,.4);}100%{opacity:1;box-shadow:inset 0 0 24px rgba(57,192,255,.06),0 0 0 0 rgba(57,192,255,0),0 14px 40px rgba(0,0,0,.4);}}
       `}</style>
 
       {/* Background gradient */}
@@ -1194,6 +1305,12 @@ export function IncidentHUD({ externalEvents, onUserIntent, live, mic }: Inciden
             <h4>Customer update · draft</h4>
             <div className="note">We&apos;re aware some premium customers in Texas may see payment errors. We&apos;ve rerouted traffic and are restoring full service. No action needed — affected attempts were not charged.</div>
           </div>
+
+          {/* Agent-built dynamic panels. The agent renders/patches/removes these
+              live via hud.component events — they build and mutate in place. */}
+          {Object.values(dynamicComponents).map((data) => (
+            <DynamicPanel key={data.id} data={data} />
+          ))}
         </div>
 
         {/* 3D callout (follows anchor via RAF) */}
@@ -1210,28 +1327,48 @@ export function IncidentHUD({ externalEvents, onUserIntent, live, mic }: Inciden
               <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#ff5f57", display: "inline-block" }} />
               <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#febc2e", display: "inline-block" }} />
               <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#28c840", display: "inline-block" }} />
-              <span style={{ flex: 1, marginLeft: 6, fontFamily: "'JetBrains Mono'", fontSize: 11, color: "var(--ink)", background: "rgba(57,192,255,.08)", padding: "5px 9px", border: "1px solid rgba(57,192,255,.18)", whiteSpace: "nowrap", overflow: "hidden" }}>
-                search ▸ tx premium payment failures · gateway queue · prior incidents
+              <span style={{ flex: 1, marginLeft: 6, fontFamily: "'JetBrains Mono'", fontSize: 11, color: "var(--ink)", background: "rgba(57,192,255,.08)", padding: "5px 9px", border: "1px solid rgba(57,192,255,.18)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                search ▸ {webSearch ? webSearch.query : "tx premium payment failures · gateway queue · prior incidents"}
               </span>
             </div>
             <div style={{ padding: "13px 14px" }}>
               <div style={{ fontFamily: "'JetBrains Mono'", fontSize: 11, color: "var(--mist)", marginBottom: 10 }}>CommandOS web agent · <b style={{ color: "var(--cyan)" }}>live query</b></div>
-              <div className={`res${showBrowser ? " on" : ""}`} style={{ transitionDelay: "0.9s" }}>
-                <span className="fav" />
-                <span className="rt">Stripe status — elevated latency, US-South processor<i>status.stripe-like.com · 6m ago</i></span>
-              </div>
-              <div className={`res${showBrowser ? " on" : ""}`} style={{ transitionDelay: "1.4s" }}>
-                <span className="fav" />
-                <span className="rt">Gateway queue saturation: symptoms &amp; safe recovery<i>runbooks.internal · KB-2231</i></span>
-              </div>
-              <div className={`res${showBrowser ? " on" : ""}`} style={{ transitionDelay: "1.9s" }}>
-                <span className="fav" />
-                <span className="rt">Postmortem — TX premium spike (34d ago)<i>incidents.internal · INC-4471</i></span>
-              </div>
-              <div style={{ marginTop: 11, fontFamily: "'JetBrains Mono'", fontSize: 11, color: "var(--green)", display: "flex", alignItems: "center", gap: 8, opacity: showBrowser ? 1 : 0, transition: "opacity .4s 2.7s" }}>
-                <span style={{ width: 10, height: 10, border: "2px solid var(--green)", borderTopColor: "transparent", borderRadius: "50%", animation: "hud-spin .8s linear infinite" }} />
-                Ingesting 3 sources into incident model…
-              </div>
+              {webSearch ? (
+                <>
+                  {webSearch.results.map((r, i) => (
+                    <div key={`${r.url}-${i}`} className={`res${showBrowser ? " on" : ""}`} style={{ transitionDelay: `${0.5 + i * 0.45}s` }}>
+                      <span className="fav" />
+                      <span className="rt">
+                        {r.title}
+                        <i>{(() => { try { return new URL(r.url).hostname; } catch { return r.url; } })()}{r.snippet ? ` · ${r.snippet}` : ""}</i>
+                      </span>
+                    </div>
+                  ))}
+                  <div style={{ marginTop: 11, fontFamily: "'JetBrains Mono'", fontSize: 11, color: "var(--green)", display: "flex", alignItems: "center", gap: 8, opacity: showBrowser ? 1 : 0, transition: `opacity .4s ${0.5 + webSearch.results.length * 0.45 + 0.3}s` }}>
+                    <span style={{ width: 10, height: 10, border: "2px solid var(--green)", borderTopColor: "transparent", borderRadius: "50%", animation: "hud-spin .8s linear infinite" }} />
+                    Ingesting {webSearch.results.length} source{webSearch.results.length === 1 ? "" : "s"} into incident model…
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className={`res${showBrowser ? " on" : ""}`} style={{ transitionDelay: "0.9s" }}>
+                    <span className="fav" />
+                    <span className="rt">Stripe status — elevated latency, US-South processor<i>status.stripe-like.com · 6m ago</i></span>
+                  </div>
+                  <div className={`res${showBrowser ? " on" : ""}`} style={{ transitionDelay: "1.4s" }}>
+                    <span className="fav" />
+                    <span className="rt">Gateway queue saturation: symptoms &amp; safe recovery<i>runbooks.internal · KB-2231</i></span>
+                  </div>
+                  <div className={`res${showBrowser ? " on" : ""}`} style={{ transitionDelay: "1.9s" }}>
+                    <span className="fav" />
+                    <span className="rt">Postmortem — TX premium spike (34d ago)<i>incidents.internal · INC-4471</i></span>
+                  </div>
+                  <div style={{ marginTop: 11, fontFamily: "'JetBrains Mono'", fontSize: 11, color: "var(--green)", display: "flex", alignItems: "center", gap: 8, opacity: showBrowser ? 1 : 0, transition: "opacity .4s 2.7s" }}>
+                    <span style={{ width: 10, height: 10, border: "2px solid var(--green)", borderTopColor: "transparent", borderRadius: "50%", animation: "hud-spin .8s linear infinite" }} />
+                    Ingesting 3 sources into incident model…
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -1281,6 +1418,23 @@ export function IncidentHUD({ externalEvents, onUserIntent, live, mic }: Inciden
           </div>
           {/* User input */}
           <form onSubmit={handleSubmit} style={{ display: "flex", gap: 8, width: "100%", pointerEvents: "auto" }}>
+            <button
+              type="button"
+              className={`hud-mic${mic?.enabled ? " on" : ""}`}
+              disabled={!mic}
+              onClick={mic?.onToggle}
+              aria-pressed={mic?.enabled ?? false}
+              title={mic ? (mic.enabled ? "Mute microphone" : "Unmute microphone") : "Microphone unavailable"}
+            >
+              <span className="orb" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
+                  <path d="M19 10v1a7 7 0 0 1-14 0v-1" />
+                  <line x1="12" y1="18" x2="12" y2="22" />
+                </svg>
+              </span>
+              {mic?.status ?? "Mic"}
+            </button>
             <input
               className="hud-input"
               value={userInput}
@@ -1291,6 +1445,8 @@ export function IncidentHUD({ externalEvents, onUserIntent, live, mic }: Inciden
           </form>
         </div>
 
+        {!live && (
+          <>
         {/* Beat dots */}
         <div style={{ position: "absolute", bottom: 34, left: 30, display: "flex", gap: 7, alignItems: "center" }}>
           {INCIDENT_MOCK_STEPS.filter((s) => s.label.startsWith("Agent") || s.label.startsWith("User") || s.label.startsWith("Incident")).map((s, i) => (
@@ -1312,6 +1468,8 @@ export function IncidentHUD({ externalEvents, onUserIntent, live, mic }: Inciden
           <button className="hud-ctrl primary" disabled={beat >= INCIDENT_MOCK_STEPS.length - 1} onClick={() => { setIsAuto(false); goNext(); }} style={{ pointerEvents: "auto", cursor: "pointer" }}>Next ▸</button>
           <button className="hud-ctrl" onClick={() => setIsAuto((v) => !v)} style={{ pointerEvents: "auto", cursor: "pointer" }}>{isAuto ? "❚❚ Auto" : "▷ Auto"}</button>
         </div>
+          </>
+        )}
       </div>
     </div>
   );

@@ -37,6 +37,7 @@ from voicebridge_brain.guardrails import check_dangerous_action
 from voicebridge_contract import COMMANDOS_INCIDENT_TITLE, Event, MemoryScope, make_event
 
 from voicebridge_agent.events import publish_existing_event
+from voicebridge_agent.web_search import exa_search
 
 if TYPE_CHECKING:  # avoid importing the heavy SDK at module load
     from livekit import rtc
@@ -56,14 +57,21 @@ class IncidentEngines:
         room: rtc.Room,
         scope: MemoryScope,
         memory: Any | None = None,
+        *,
+        exa_api_key: str | None = None,
     ) -> None:
         self._room = room
         self._scope = scope
         self._sequence = 0
         self._memory = memory or SelfImprovingIncidentMemory()
+        self._exa_api_key = exa_api_key
         # Track what has been built so dashboard/report reflect real progress.
         self._fired: set[str] = set()
         self._last_similar: dict[str, Any] | None = None
+        # True once a *configured* MOSS backend has errored and we fell back to
+        # local memory — lets the trace distinguish "MOSS errored" (unavailable)
+        # from "no MOSS configured" (stub).
+        self._moss_degraded = False
 
     async def _emit(
         self,
@@ -92,14 +100,19 @@ class IncidentEngines:
         return event
 
     async def bootstrap_memory(self) -> str:
-        """Load prior incident memory as part of the core mic loop."""
-        await self._emit(
-            "scene.state",
-            _scene("thinking", "prior_incident_overlay", "Loading MOSS incident memory"),
-            turn_id="memory_bootstrap",
-            mode="live",
+        """Load prior incident memory without opening the HUD before user intent."""
+        similar = await self._recall_similar(
+            "preload prior Texas payment gateway incident memory",
         )
-        return await self.recall_similar_incidents()
+        self._last_similar = similar
+        mode = self._recall_mode(similar)
+        await self._emit(
+            "memory.recalled",
+            self._memory_recall_payload(similar, mode),
+            turn_id="memory_bootstrap",
+            mode=mode,
+        )
+        return "Incident memory loaded."
 
     async def _recall_similar(self, query: str) -> dict[str, Any]:
         """Recall from MOSS when available, with local fallback on provider errors."""
@@ -114,6 +127,7 @@ class IncidentEngines:
             if getattr(self._memory, "source", None) != "moss":
                 raise
             logger.warning("MOSS recall failed; falling back to local memory: %s", exc)
+            self._moss_degraded = True
             self._memory = SelfImprovingIncidentMemory()
             return await asyncio.to_thread(
                 self._memory.recall_similar_incident,
@@ -134,12 +148,38 @@ class IncidentEngines:
             if getattr(self._memory, "source", None) != "moss":
                 raise
             logger.warning("MOSS write failed; falling back to local memory: %s", exc)
+            self._moss_degraded = True
             self._memory = SelfImprovingIncidentMemory()
             return await asyncio.to_thread(
                 self._memory.remember_incident_learning,
                 self._scope,
                 report,
             )
+
+    def _recall_mode(self, similar: dict[str, Any]) -> str:
+        """Honest integration mode for a memory recall.
+
+        ``unavailable`` when a configured MOSS backend errored (so the trace
+        shows MOSS *failed*, not merely absent), ``live`` on a real MOSS hit,
+        else ``stub`` when MOSS was never configured.
+        """
+        if self._moss_degraded:
+            return "unavailable"
+        return "live" if similar["source"] == "moss" else "stub"
+
+    def _memory_recall_payload(self, similar: dict[str, Any], mode: str) -> dict[str, Any]:
+        return {
+            "source": similar["source"],
+            "score": similar["similarity"],
+            "summary": [
+                "Similar Texas gateway saturation detected.",
+                "Early restart previously increased duplicate-charge risk.",
+                "Traffic shift before controlled restart was the successful path.",
+            ],
+            "prior_call": similar,
+            "provider": "moss",
+            "integration_mode": mode,
+        }
 
     # ── Lifecycle ──────────────────────────────────────────────────────────
 
@@ -164,6 +204,121 @@ class IncidentEngines:
         """Move the HUD camera/scene without firing a data engine."""
         await self._emit("scene.state", _scene(state, visual, caption), turn_id="scene")
         return f"Scene set to {visual}."
+
+    # ── Generative HUD (free-form panels the LLM composes live) ───────────────
+
+    async def render_panel(
+        self,
+        id: str,
+        component: str,
+        title: str = "",
+        items: list[dict[str, Any]] | None = None,
+        subtitle: str = "",
+        scene_hint: str = "",
+        source: str = "computed",
+    ) -> str:
+        """Render a generative HUD panel (hud.component, op=render)."""
+        payload: dict[str, Any] = {
+            "id": id,
+            "op": "render",
+            "component": component,
+            "title": title,
+            "subtitle": subtitle,
+            "items": list(items or []),
+            "source": source,
+        }
+        if scene_hint:
+            payload["scene_hint"] = scene_hint
+            await self._emit(
+                "scene.state",
+                _scene("building", scene_hint, title or f"Rendering {component}"),
+                turn_id="hud",
+            )
+        await self._emit("hud.component", payload, turn_id="hud", mode="live")
+        return f"Rendered {component} panel '{title}'."
+
+    async def update_panel(
+        self,
+        id: str,
+        title: str | None = None,
+        subtitle: str | None = None,
+        items: list[dict[str, Any]] | None = None,
+        scene_hint: str | None = None,
+        source: str | None = None,
+    ) -> str:
+        """Patch an existing HUD panel in place (hud.component, op=patch)."""
+        payload: dict[str, Any] = {"id": id, "op": "patch", "component": "callout"}
+        if title is not None:
+            payload["title"] = title
+        if subtitle is not None:
+            payload["subtitle"] = subtitle
+        if items is not None:
+            payload["items"] = list(items)
+        if source is not None:
+            payload["source"] = source
+        if scene_hint is not None:
+            payload["scene_hint"] = scene_hint
+            await self._emit(
+                "scene.state",
+                _scene("building", scene_hint, title or f"Updating {id}"),
+                turn_id="hud",
+            )
+        await self._emit("hud.component", payload, turn_id="hud", mode="live")
+        return f"Updated panel {id}."
+
+    async def remove_panel(self, id: str) -> str:
+        """Remove a HUD panel (hud.component, op=remove)."""
+        await self._emit(
+            "hud.component",
+            {"id": id, "op": "remove", "component": "callout"},
+            turn_id="hud",
+            mode="live",
+        )
+        return f"Removed panel {id}."
+
+    async def focus_section(self, target: str) -> str:
+        """Animate the HUD camera to the scene that best matches an intent word."""
+        visuals = {
+            "why": "payment_topology",
+            "where": "failure_map",
+            "trend": "failure_map_drilldown",
+            "compare": "payment_topology",
+            "overview": "dashboard",
+            "memory": "prior_incident_overlay",
+            "plan": "mitigation_morph",
+        }
+        visual = visuals.get(target, "dashboard")
+        await self._emit(
+            "scene.state",
+            _scene("speaking", visual, f"Focusing on {target}"),
+            turn_id="hud",
+        )
+        return f"Focused on {target}."
+
+    async def web_search(self, query: str) -> str:
+        """Search the web via Exa to ground the answer (web.search.results)."""
+        api_key = self._exa_api_key
+        if api_key is None:
+            # Lazy fallback so search works even before the orchestrator wires it.
+            from voicebridge_agent.config import load_config
+
+            api_key = load_config().exa_api_key
+        results = await exa_search(query, api_key=api_key)
+        mode = "live" if (api_key and results) else "unavailable"
+        await self._emit(
+            "web.search.results",
+            {"query": query, "results": results},
+            turn_id="web_search",
+            mode=mode,
+        )
+        if not results:
+            return "I couldn't reach web search right now."
+        titles = [r["title"] for r in results[:2] if r.get("title")]
+        if not titles:
+            return "I found some results, but none had a clear title."
+        if len(titles) == 1:
+            return f"Top web result: {titles[0]}."
+        return f"Top web results: {titles[0]}; and {titles[1]}."
 
     # ── Engines (one per HUD module) ─────────────────────────────────────────
 
@@ -210,7 +365,8 @@ class IncidentEngines:
             "why are payments failing have we seen this before",
         )
         self._last_similar = similar
-        mode = "live" if similar["source"] == "moss" else "stub"
+        mode = self._recall_mode(similar)
+        data_mode = "live" if similar["source"] == "moss" else "stub"
         await self._emit(
             "scene.state",
             _scene("speaking", "prior_incident_overlay", "Prior incident pattern overlay"),
@@ -218,22 +374,11 @@ class IncidentEngines:
         )
         await self._emit(
             "memory.recalled",
-            {
-                "source": similar["source"],
-                "score": similar["similarity"],
-                "summary": [
-                    "Similar Texas gateway saturation detected.",
-                    "Early restart previously increased duplicate-charge risk.",
-                    "Traffic shift before controlled restart was the successful path.",
-                ],
-                "prior_call": similar,
-                "provider": "moss",
-                "integration_mode": mode,
-            },
+            self._memory_recall_payload(similar, mode),
             turn_id="memory",
             mode=mode,
         )
-        await self._emit("similar_incident.recalled", similar, turn_id="memory", mode=mode)
+        await self._emit("similar_incident.recalled", similar, turn_id="memory", mode=data_mode)
         return (
             "Yes. A similar Texas spike hit about a month ago. The team restarted too "
             "early, queue depth was still high, and duplicate-charge risk rose."

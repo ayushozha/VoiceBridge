@@ -111,8 +111,10 @@ export const EVENT_TYPES = [
   "dashboard.generated",
   "report.created",
   "scene.state",
+  "hud.component",
   "memory.recalled",
   "knowledge.retrieved",
+  "web.search.results",
   "consent.requested",
   "consent.approved",
   "consent.denied",
@@ -304,6 +306,29 @@ export interface SceneStatePayload {
   caption: string;
 }
 
+export interface HudComponentItem {
+  label: string;
+  value: string | number;
+  unit?: string;
+  delta?: number;
+  emphasis?: boolean;
+}
+
+export interface HudComponentPayload {
+  /** Stable component id; re-emitting with the same id targets the same component. */
+  id: string;
+  /** render = create/replace by id; patch = shallow-merge fields; remove = delete. */
+  op: "render" | "patch" | "remove";
+  component: "metric_grid" | "bar_chart" | "ranked_list" | "callout" | "timeline" | "map";
+  title?: string;
+  subtitle?: string;
+  items?: HudComponentItem[];
+  /** Optional camera/scene to animate to, e.g. "failure_map", "payment_topology". */
+  scene_hint?: string;
+  /** Provenance label, e.g. "moss", "exa", "computed". */
+  source?: string;
+}
+
 export interface MemoryRecalledPayload {
   source: "moss" | "local";
   /** Retrieval score, when the backend supplies one. */
@@ -321,6 +346,17 @@ export interface KnowledgeRetrievedPayload {
   matches: string[];
   /** Provenance — the parsed source document, if any. */
   document?: string;
+}
+
+export interface WebSearchResult {
+  title: string;
+  url: string;
+  snippet: string;
+}
+
+export interface WebSearchResultsPayload {
+  query: string;
+  results: WebSearchResult[];
 }
 
 export interface ConsentRequestedPayload {
@@ -438,8 +474,10 @@ export type VoiceBridgeEvent =
   | EventEnvelope<"dashboard.generated", DashboardGeneratedPayload>
   | EventEnvelope<"report.created", ReportCreatedPayload>
   | EventEnvelope<"scene.state", SceneStatePayload>
+  | EventEnvelope<"hud.component", HudComponentPayload>
   | EventEnvelope<"memory.recalled", MemoryRecalledPayload>
   | EventEnvelope<"knowledge.retrieved", KnowledgeRetrievedPayload>
+  | EventEnvelope<"web.search.results", WebSearchResultsPayload>
   | EventEnvelope<"consent.requested", ConsentRequestedPayload>
   | EventEnvelope<"consent.approved", ConsentDecisionPayload>
   | EventEnvelope<"consent.denied", ConsentDecisionPayload>
@@ -471,8 +509,10 @@ export interface EventPayloadMap {
   "dashboard.generated": DashboardGeneratedPayload;
   "report.created": ReportCreatedPayload;
   "scene.state": SceneStatePayload;
+  "hud.component": HudComponentPayload;
   "memory.recalled": MemoryRecalledPayload;
   "knowledge.retrieved": KnowledgeRetrievedPayload;
+  "web.search.results": WebSearchResultsPayload;
   "consent.requested": ConsentRequestedPayload;
   "consent.approved": ConsentDecisionPayload;
   "consent.denied": ConsentDecisionPayload;

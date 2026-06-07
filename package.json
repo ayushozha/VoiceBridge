@@ -24,6 +24,7 @@
     "agent:live-check": "cd agent && uv run python -m voicebridge_agent.live_readiness",
     "agent:live-check:strict": "cd agent && uv run python -m voicebridge_agent.live_readiness --strict",
     "agent:dev": "cd agent && uv run python -m voicebridge_agent.agent dev",
+    "agent:start": "cd agent && uv run python -m voicebridge_agent.agent start",
     "agent:console": "cd agent && uv run python -m voicebridge_agent.agent console",
     "agent:sip:check": "cd agent && uv run python -m voicebridge_agent.transport.sip check",
     "agent:sip:call": "cd agent && uv run python -m voicebridge_agent.transport.sip call",

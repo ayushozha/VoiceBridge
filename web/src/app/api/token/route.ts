@@ -11,13 +11,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { RoomAgentDispatch, RoomConfiguration } from "@livekit/protocol";
 import { AccessToken, AgentDispatchClient, RoomServiceClient } from "livekit-server-sdk";
-import { DEMO } from "@voicebridge/contracts";
+import { COMMANDOS_DEMO } from "@voicebridge/contracts";
 import { serverEnv } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 
 type Role = "user" | "insurer" | "observer";
-const COMMANDOS_AGENT_NAME = "commandos";
+const COMMANDOS_AGENT_NAME = process.env.COMMANDOS_AGENT_NAME ?? "commandos_live";
 const COMMANDOS_AGENT_IDENTITY = "commandos_agent";
 type AgentDispatchStatus = "created" | "existing" | "refreshed" | "skipped";
 
@@ -25,7 +25,7 @@ function identityFor(role: Role, override?: string): string {
   if (override) return override;
   switch (role) {
     case "user":
-      return DEMO.userId;
+      return COMMANDOS_DEMO.userId;
     case "insurer":
       return "northstar_rep";
     case "observer":
@@ -78,7 +78,11 @@ export async function GET(req: NextRequest) {
   const room = params.get("room") ?? serverEnv.roomName();
 
   try {
-    const metadata = JSON.stringify({ role, tenant_id: DEMO.tenantId, case_id: DEMO.caseId });
+    const metadata = JSON.stringify({
+      role,
+      tenant_id: COMMANDOS_DEMO.tenantId,
+      case_id: COMMANDOS_DEMO.caseId,
+    });
     const agentDispatch =
       role === "user" ? await ensureCommandOSDispatch(room, metadata) : "skipped";
 
@@ -100,7 +104,7 @@ export async function GET(req: NextRequest) {
       canSubscribe: true,
     });
 
-    // The backend worker is registered with agent_name="commandos".
+    // The backend worker registers with the same agent name.
     // Dispatch it when the operator enters Voice OS so the CTA starts a real call.
     if (role === "user") {
       at.roomConfig = new RoomConfiguration({

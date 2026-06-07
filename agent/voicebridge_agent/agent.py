@@ -48,8 +48,15 @@ from livekit.agents import (
     inference,
     room_io,
 )
-from livekit.plugins import silero
-from voicebridge_contract import DEMO_LANGUAGES, Event, MemoryScope
+from livekit.plugins import openai, silero
+from voicebridge_contract import (
+    COMMANDOS_CASE_ID,
+    COMMANDOS_TENANT_ID,
+    COMMANDOS_USER_ID,
+    DEMO_LANGUAGES,
+    Event,
+    MemoryScope,
+)
 
 from voicebridge_agent.config import Config, load_config
 from voicebridge_agent.events import publish_event, publish_existing_event
@@ -63,6 +70,7 @@ if TYPE_CHECKING:  # keep heavy/typing-only imports out of runtime
     from voicebridge_agent.voice import VoiceSelection
 
 logger = logging.getLogger("voicebridge.agent")
+COMMANDOS_AGENT_NAME = os.getenv("COMMANDOS_AGENT_NAME", "commandos_live")
 
 # NVIDIA exposes an OpenAI-compatible Chat Completions endpoint for its NIM /
 # Nemotron models. Used only when the Nemotron key is present.
@@ -84,16 +92,35 @@ INSTRUCTIONS = textwrap.dedent(
     renders a part of it in real time.
 
     # How you work (this is the most important rule)
-    - You are conversational and free-flowing. Whenever the operator asks to see,
-      build, inspect, trace, recall, plan, check, or assemble something, CALL THE
-      MATCHING TOOL. The tool draws it on the operator's screen.
-    - You may call tools in ANY order and as many times as the conversation needs.
-      Follow what the operator actually asks for, not a fixed script.
-    - The first time the operator describes the problem, call start_incident, then
-      the tool that answers their question.
-    - After each tool call, speak a short, natural summary of what appeared.
+    - You are conversational and free-flowing, like a voice assistant the operator
+      can interrupt and redirect at any time. Whenever they ask to see, build,
+      inspect, trace, recall, plan, check, compare, or look up something, CALL THE
+      MATCHING TOOL. The tool draws it on the operator's screen in real time.
+    - Work the loop: (1) figure out what they're actually asking, (2) call
+      focus_section to animate the view to the right place, (3) build the answer —
+      a preset engine if one fits, otherwise render_panel to build a panel on the
+      fly, (4) speak a one-line summary of what appeared.
+    - When the operator questions, corrects, or refines what's on screen ("no, by
+      region", "last 7 days instead", "why though?"), call update_panel with the
+      SAME id so the panel changes in place — never stack a duplicate. This live
+      back-and-forth is the whole point.
+    - You may call tools in ANY order and as many times as needed. Follow what the
+      operator actually asks for, not a fixed script.
+    - The first time they describe a problem/incident, call start_incident, then the
+      tool that answers their question.
+    - If you need current facts the workspace doesn't hold, call web_search.
 
-    # Tool guide (call these to drive the HUD)
+    # Tool guide
+    Generic (use for ANY question, including ones with no preset):
+    - focus_section: animate the camera to where the question is about (why / where
+      / trend / compare / overview / memory / plan).
+    - render_panel: build a new panel (metric_grid, bar_chart, ranked_list, callout,
+      timeline, map) with a stable id to answer the operator's question.
+    - update_panel: change an existing panel in place by id when they refine it.
+    - remove_panel: drop a panel that's no longer relevant.
+    - web_search: look up current facts on the live web; summarize what you find.
+    - set_scene: move the camera/scene if asked, without new data.
+    Payments-incident presets (use when the question matches the live incident):
     - start_incident: open the incident workspace (call once, early).
     - inspect_payment_failures: build the regional failure map.
     - drilldown_cities: break the map down by city.
@@ -105,7 +132,6 @@ INSTRUCTIONS = textwrap.dedent(
     - check_action_guardrail: check a risky action (e.g. a gateway restart).
     - prepare_approval_request: prepare the human approval card.
     - generate_incident_dashboard: fold everything into a dashboard and report.
-    - set_scene: move the camera/scene if asked, without new data.
 
     # Output rules (this is a voice channel)
     - Plain speech only. No markdown, lists, JSON, emojis, or symbols.
@@ -230,6 +256,98 @@ class VoiceBridgeAgent(Agent):
         """
         return await self._eng().set_scene(state, visual, caption or visual)
 
+    # ── Build-on-the-fly HUD (works for ANY question, not just the preset) ──
+
+    @function_tool()
+    async def render_panel(
+        self,
+        context: RunContext,
+        id: str,
+        component: str,
+        title: str = "",
+        items: list[dict[str, Any]] | None = None,
+        subtitle: str = "",
+        scene_hint: str = "",
+    ) -> str:
+        """Build a NEW panel on the HUD to answer whatever the operator asked, even
+        if there is no preset for it (e.g. "where are sales declining", "compare
+        last week vs this week"). Choose a stable ``id`` so you can update it later.
+
+        Args:
+            id: Stable id for this panel (e.g. "sales_by_region"). Reuse it with
+                update_panel to change this same panel in place.
+            component: One of metric_grid, bar_chart, ranked_list, callout,
+                timeline, map.
+            title: Short panel title.
+            items: Rows to show, each like {"label": str, "value": str|number,
+                "unit"?: str, "delta"?: number, "emphasis"?: bool}.
+            subtitle: Optional sub-line.
+            scene_hint: Optional view to animate to (failure_map,
+                failure_map_drilldown, payment_topology, prior_incident_overlay,
+                mitigation_morph, dashboard).
+        """
+        return await self._eng().render_panel(
+            id, component, title=title, items=items, subtitle=subtitle, scene_hint=scene_hint
+        )
+
+    @function_tool()
+    async def update_panel(
+        self,
+        context: RunContext,
+        id: str,
+        title: str | None = None,
+        subtitle: str | None = None,
+        items: list[dict[str, Any]] | None = None,
+        scene_hint: str | None = None,
+    ) -> str:
+        """Change an EXISTING panel in place when the operator refines or questions
+        it ("no, break that down by region", "show last 7 days instead", "why?").
+        Pass the same ``id`` and only the fields that change — the panel updates
+        live instead of stacking a new one.
+
+        Args:
+            id: The id of the panel to update (must match an earlier render_panel).
+            title: New title, if it should change.
+            subtitle: New subtitle, if it should change.
+            items: New rows, if the data should change.
+            scene_hint: Optional view to animate to.
+        """
+        return await self._eng().update_panel(
+            id, title=title, subtitle=subtitle, items=items, scene_hint=scene_hint
+        )
+
+    @function_tool()
+    async def remove_panel(self, context: RunContext, id: str) -> str:
+        """Remove a panel from the HUD when it is no longer relevant.
+
+        Args:
+            id: The id of the panel to remove.
+        """
+        return await self._eng().remove_panel(id)
+
+    @function_tool()
+    async def focus_section(self, context: RunContext, target: str) -> str:
+        """Auto-animate the HUD camera to the part of the workspace the operator's
+        question is about, without producing new data. Call this as soon as you
+        know what they want to look at.
+
+        Args:
+            target: Intent word — one of why, where, trend, compare, overview,
+                memory, plan.
+        """
+        return await self._eng().focus_section(target)
+
+    @function_tool()
+    async def web_search(self, context: RunContext, query: str) -> str:
+        """Search the live web when you need current facts the workspace doesn't
+        have (news, prices, external context). Results appear on the HUD; speak a
+        short summary of what you found.
+
+        Args:
+            query: The search query.
+        """
+        return await self._eng().web_search(query)
+
 
 def _build_llm(cfg: Config) -> LLMBase | str:
     """Pick the live-room LLM.
@@ -289,6 +407,34 @@ def _scripted_demo_enabled() -> bool:
     """Whether to replay the deterministic orchestrator stream instead of the
     live, tool-driven conversation. Opt-in via COMMANDOS_SCRIPTED_DEMO."""
     return os.getenv("COMMANDOS_SCRIPTED_DEMO", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _realtime_enabled() -> bool:
+    """Whether to run the OpenAI Realtime (speech-to-speech) model instead of the
+    legacy STT->LLM->TTS pipeline. On by default; set COMMANDOS_REALTIME to
+    "0"/"false"/"no"/"off" to roll back to the legacy pipeline."""
+    return os.getenv("COMMANDOS_REALTIME", "1").strip().lower() not in {"0", "false", "no", "off"}
+
+
+def _build_realtime_model(cfg: Config) -> Any:
+    """Build the OpenAI Realtime model (speech-to-speech) for the live room.
+
+    Uses the OpenAI key/model already resolved on the Config (the same
+    COMMANDOS_MODEL_FALLBACK_* values the text/translation paths use). VAD on the
+    AgentSession still drives endpointing and barge-in, so turn detection is left
+    to the session default here.
+    """
+    if not cfg.model_fallback_api_key:
+        logger.warning(
+            "OpenAI Realtime selected but COMMANDOS_MODEL_FALLBACK_API_KEY is missing; "
+            "the realtime session will fail to authenticate"
+        )
+    logger.info("LLM: OpenAI Realtime (%s, voice=marin)", cfg.model_fallback_realtime_model)
+    return openai.realtime.RealtimeModel(
+        model=cfg.model_fallback_realtime_model,
+        voice="marin",
+        api_key=cfg.model_fallback_api_key,
+    )
 
 
 def _select_voice(cfg: Config) -> VoiceSelection:
@@ -363,11 +509,23 @@ async def _say_and_publish_voice(
     language: str,
     provider: str,
 ) -> None:
-    """Speak one deterministic line and emit a matching voice.spoken event."""
+    """Speak one deterministic line and emit a matching voice.spoken event.
+
+    Uses ``session.say`` on the legacy STT->LLM->TTS pipeline. The OpenAI Realtime
+    session has no separate TTS and does not support ``say()``; there we ask the
+    model to voice the line via ``generate_reply`` so it plays through the realtime
+    audio path.
+    """
     started = time.perf_counter()
     try:
-        speech = session.say(text, add_to_chat_ctx=True)
-        await speech.wait_for_playout()
+        if _realtime_enabled():
+            handle = session.generate_reply(
+                instructions=f"Say exactly this, then stop: {text}"
+            )
+            await handle.wait_for_playout()
+        else:
+            speech = session.say(text, add_to_chat_ctx=True)
+            await speech.wait_for_playout()
     except RuntimeError as exc:
         if "closing" in str(exc).lower():
             logger.info("Skipping voice playback because the agent session is closing")
@@ -394,7 +552,11 @@ def smoke_check() -> None:
     selection = _select_voice(cfg)
     from voicebridge_brain.commandos import CommandOSOrchestrator
 
-    scope = MemoryScope(tenant_id=cfg.tenant_id, user_id=cfg.user_id, case_id=cfg.case_id)
+    scope = MemoryScope(
+        tenant_id=COMMANDOS_TENANT_ID,
+        user_id=COMMANDOS_USER_ID,
+        case_id=COMMANDOS_CASE_ID,
+    )
     event_count = len(CommandOSOrchestrator().run(scope=scope))
     _startup_log(
         "smoke ok | "
@@ -414,15 +576,19 @@ server = AgentServer()
 server.setup_fnc = prewarm
 
 
-@server.rtc_session(agent_name="commandos")
+@server.rtc_session(agent_name=COMMANDOS_AGENT_NAME)
 async def entrypoint(ctx: JobContext) -> None:
     """Per-call entrypoint: join the room, wire the pipeline, emit call.* events."""
     cfg = load_config()
-    scope = MemoryScope(tenant_id=cfg.tenant_id, user_id=cfg.user_id, case_id=cfg.case_id)
-    ctx.log_context_fields = {"room": ctx.room.name, "case_id": cfg.case_id}
+    scope = MemoryScope(
+        tenant_id=COMMANDOS_TENANT_ID,
+        user_id=COMMANDOS_USER_ID,
+        case_id=COMMANDOS_CASE_ID,
+    )
+    ctx.log_context_fields = {"room": ctx.room.name, "case_id": scope.case_id}
     voice_selection = _select_voice(cfg)
 
-    _startup_log(f"job accepted room={ctx.room.name} case_id={cfg.case_id}")
+    _startup_log(f"job accepted room={ctx.room.name} case_id={scope.case_id}")
     logger.info(
         "CommandOS agent joining room=%s "
         "(nvidia=%s elevenlabs=%s minimax=%s qwen=%s model_fallback=%s)",
@@ -444,18 +610,37 @@ async def entrypoint(ctx: JobContext) -> None:
         scope,
     )
 
-    session: AgentSession = AgentSession(
-        stt=inference.STT(model=INFERENCE_STT_MODEL, language="multi"),
-        llm=_build_llm(cfg),
-        tts=_build_tts(voice_selection),
-        vad=ctx.proc.userdata["vad"],
-        preemptive_generation=True,
-    )
+    # Voice path. Default: OpenAI Realtime (speech-to-speech) — one model does
+    # STT+LLM+TTS, with native barge-in via the Silero VAD on the session. Set
+    # COMMANDOS_REALTIME=0 to roll back to the legacy STT->LLM->TTS pipeline.
+    session: AgentSession
+    if _realtime_enabled():
+        _startup_log(
+            f"voice path=realtime model={cfg.model_fallback_realtime_model} room={ctx.room.name}"
+        )
+        session = AgentSession(
+            llm=_build_realtime_model(cfg),
+            vad=ctx.proc.userdata["vad"],
+            resume_false_interruption=True,
+        )
+    else:
+        _startup_log(
+            f"voice path=legacy stt-llm-tts llm={INFERENCE_LLM_MODEL} room={ctx.room.name}"
+        )
+        session = AgentSession(
+            stt=inference.STT(model=INFERENCE_STT_MODEL, language="multi"),
+            llm=_build_llm(cfg),
+            tts=_build_tts(voice_selection),
+            vad=ctx.proc.userdata["vad"],
+            preemptive_generation=True,
+        )
 
     # Bind the incident engines to the agent so its function tools can publish
     # HUD events into this room as the operator speaks.
     agent = VoiceBridgeAgent()
-    engines = IncidentEngines(ctx.room, scope, memory=_build_incident_memory(cfg))
+    engines = IncidentEngines(
+        ctx.room, scope, memory=_build_incident_memory(cfg), exa_api_key=cfg.exa_api_key
+    )
     agent.bind_engines(engines)
 
     await session.start(
@@ -521,10 +706,7 @@ async def entrypoint(ctx: JobContext) -> None:
         session,
         ctx.room,
         scope,
-        text=(
-            "CommandOS online. Ask me anything about the incident and I'll build it "
-            "out as we talk."
-        ),
+        text="CommandOS online. What do you want to look at?",
         language=DEMO_LANGUAGES[0],
         provider=voice_selection.provider,
     )

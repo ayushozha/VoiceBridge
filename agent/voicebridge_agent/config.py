@@ -77,6 +77,7 @@ class Config:
     moss_model_id: str
     unsiloed_api_key: str | None
     unsiloed_parse_url: str | None
+    exa_api_key: str | None
     truefoundry_api_key: str | None
     truefoundry_gateway_base_url: str | None
     truefoundry_guardrail_config_id: str | None
@@ -129,6 +130,10 @@ class Config:
     @property
     def has_unsiloed(self) -> bool:
         return bool(self.unsiloed_api_key and self.unsiloed_parse_url)
+
+    @property
+    def has_exa(self) -> bool:
+        return bool(self.exa_api_key)
 
     @property
     def has_truefoundry(self) -> bool:
@@ -187,6 +192,7 @@ def load_config() -> Config:
         moss_model_id=os.getenv("MOSS_MODEL_ID", "moss-minilm"),
         unsiloed_api_key=_val("UNSILOED_API_KEY"),
         unsiloed_parse_url=_val("UNSILOED_PARSE_URL"),
+        exa_api_key=_val("EXA_API_KEY"),
         truefoundry_api_key=_val("TRUEFOUNDRY_API_KEY"),
         truefoundry_gateway_base_url=_val("TRUEFOUNDRY_GATEWAY_BASE_URL"),
         truefoundry_guardrail_config_id=_val("TRUEFOUNDRY_GUARDRAIL_CONFIG_ID"),

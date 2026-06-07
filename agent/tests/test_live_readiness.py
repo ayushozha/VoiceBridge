@@ -42,6 +42,7 @@ def cfg(**overrides: object) -> Config:
         "moss_model_id": "moss-minilm",
         "unsiloed_api_key": None,
         "unsiloed_parse_url": None,
+        "exa_api_key": None,
         "truefoundry_api_key": None,
         "truefoundry_gateway_base_url": None,
         "truefoundry_guardrail_config_id": None,
