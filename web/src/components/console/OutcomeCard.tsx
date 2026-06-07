@@ -41,13 +41,13 @@ export function OutcomeCard({ outcome }: { outcome: OutcomeCreatedPayload }) {
           </Row>
         ) : null}
         <Row label="Missing documents">
-          {outcome.missing_documents.length
+          {outcome.missing_documents?.length
             ? outcome.missing_documents.map((d) => d.replace(/_/g, " ")).join(", ")
             : "none"}
         </Row>
         {outcome.deadline ? <Row label="Deadline">{outcome.deadline}</Row> : null}
         <Row label="Shared (approved)">
-          {outcome.sensitive_info_shared.length ? (
+          {outcome.sensitive_info_shared?.length ? (
             <span className="flex flex-wrap gap-1.5">
               {outcome.sensitive_info_shared.map((f) => (
                 <Pill key={f} tone="approve">

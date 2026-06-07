@@ -75,7 +75,7 @@ export function OutcomeCard({ events }: { events: readonly VoiceBridgeEvent[] })
           </div>
           <h2 className="text-base font-semibold text-vb-text">Call outcome</h2>
         </div>
-        <StatusBadge status={outcome.claim_status} />
+        <StatusBadge status={outcome.claim_status ?? outcome.incident_status ?? "—"} />
       </div>
 
       <div className="grid grid-cols-2 gap-x-6 gap-y-4 rounded-lg border border-vb-border/60 bg-vb-surface-2/40 p-4">
@@ -87,7 +87,7 @@ export function OutcomeCard({ events }: { events: readonly VoiceBridgeEvent[] })
         {outcome.deadline && <Field label="Deadline">{outcome.deadline}</Field>}
 
         <Field label="Missing documents">
-          {outcome.missing_documents.length > 0 ? (
+          {outcome.missing_documents && outcome.missing_documents.length > 0 ? (
             <span className="flex flex-wrap gap-1">
               {outcome.missing_documents.map((d) => (
                 <span
@@ -104,7 +104,7 @@ export function OutcomeCard({ events }: { events: readonly VoiceBridgeEvent[] })
         </Field>
 
         <Field label="Sensitive info shared">
-          {outcome.sensitive_info_shared.length > 0 ? (
+          {outcome.sensitive_info_shared && outcome.sensitive_info_shared.length > 0 ? (
             <span className="flex flex-wrap gap-1">
               {outcome.sensitive_info_shared.map((f) => (
                 <span

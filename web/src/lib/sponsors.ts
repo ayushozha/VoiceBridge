@@ -131,6 +131,11 @@ export function sponsorForEvent(event: VoiceBridgeEvent): Sponsor | null {
     case "user.choice":
     case "user.correction":
       return null;
+
+    // CommandOS incident/scene telemetry rides the LiveKit data channel and has
+    // no single external sponsor owner.
+    default:
+      return null;
   }
 }
 
@@ -177,5 +182,11 @@ export function traceHeadline(event: VoiceBridgeEvent): string {
       return "VoiceBridge → insurer";
     case "insurer.utterance":
       return "Insurer → VoiceBridge";
+    // CommandOS incident/scene events (e.g. map.hotspots → "Map hotspots").
+    default: {
+      const [, name = event.type] = (event.type as string).split(".");
+      const words = name.replace(/_/g, " ");
+      return words.charAt(0).toUpperCase() + words.slice(1);
+    }
   }
 }
