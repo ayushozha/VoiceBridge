@@ -1,4 +1,4 @@
-# VoiceBridge Spec
+# CommandOS Spec
 
 Status: Draft
 Date: 2026-06-07
@@ -7,1113 +7,928 @@ Secondary track: Support
 
 ## One-Line Pitch
 
-VoiceBridge is a business-deployed conversational access layer that helps insurers and financial-service organizations complete high-stakes phone workflows with customers who cannot reliably speak, hear, process, respond, or stay in one language in real time.
+CommandOS is a conversational 3D incident intelligence OS for live business
+incidents. A team talks to a voice orb, and the system builds the operating
+workspace with them: spatial failure map, payment topology, prior-incident
+memory, guarded mitigation plan, approval gate, and final dashboard/report.
 
-## Positioning
+## Hackathon Concept
 
-VoiceBridge is not a consumer calling assistant. It is not a generic AI that calls businesses for individuals.
+The demo is not a generic dashboard and not a personal assistant.
 
-VoiceBridge is B2B2C: the business buys and deploys it, and the consumer, member, claimant, or caregiver uses it during the call.
+The demo is a voice-first operating surface for business incidents. It starts
+with nothing but an orb. The operator asks a vague operational question, then
+CommandOS asks clarifying questions, builds a 3D model of the incident, recalls
+a similar failure, recommends a safer fix, blocks an unsafe command, and turns
+the investigation into a clean incident dashboard.
 
-VoiceBridge is deployed by organizations that must serve people over the phone at scale:
+The core promise:
 
-- Insurers
-- Banks and credit unions
-- Fintech support teams
-- Brokerages and benefits administrators
-- Government benefits agencies
-- Utilities and telecom providers
-- Enterprise customer support teams with accessibility obligations
+```text
+Dashboards show what broke.
+CommandOS talks through the incident with you, builds the live 3D model,
+remembers what happened last time, blocks unsafe actions, and turns the whole
+incident into an operating dashboard.
+```
 
-The institution deploys VoiceBridge so policyholders, members, customers, claimants, and caregivers can complete phone workflows through a memory-aware, consent-aware, multilingual AI communication proxy.
+## Demo Title
 
-## Core Thesis
+CommandOS: Conversational 3D Incident Intelligence
 
-Phone access is still required for critical workflows, but many people cannot reliably complete those calls without help.
+## Demo Scenario
 
-Existing solutions cover pieces of the problem:
+Fintech payments outage.
 
-- Relay services help with access, but they are not personalized memory systems.
-- AAC tools help users speak, but they are not live call-completion agents.
-- AI calling assistants can complete tasks, but they are consumer-first and not built as institutional accessibility infrastructure.
-- Business call centers can offer human assistance, but they do not preserve a durable user-owned communication profile across calls.
+Business: AtlasPay, a fictional payment platform.
 
-VoiceBridge turns communication needs into a persistent, consent-aware profile that can be used across repeat calls, languages, and organizations.
+Incident:
 
-## Primary Buyer
+- Premium customers in Texas are seeing failed payments.
+- Failures are concentrated in Dallas, Austin, and Houston.
+- The failure happens after gateway authorization and before processor
+  confirmation.
+- A similar Texas gateway incident happened last month.
+- Restarting too early created duplicate-charge risk last time.
+- The safer path is queue-depth check, traffic shift, controlled restart, and
+  later regional load balancing.
 
-VoiceBridge is sold to businesses and institutions, not individual consumers.
+## What Judges Should See
 
-### Beachhead Buyer
+1. A blank screen with a single 3D orb.
+2. The operator asks why payments are failing.
+3. CommandOS asks clarifying questions instead of guessing.
+4. A 3D map appears with failure hotspots.
+5. A 3D payment topology appears and localizes the failure.
+6. A prior incident ghost layer overlays the current incident.
+7. The architecture morphs into a proposed mitigation.
+8. A dangerous restart command is blocked until checks and approval.
+9. The whole 3D investigation folds into a clean dashboard and report.
 
-Insurance and financial access organizations:
+The judge should feel that the system is conversational, spatial, memory-aware,
+and operationally governed.
 
-- Property and casualty insurers
-- Health insurers and Medicare Advantage plans
-- Claims administrators
-- Third-party administrators
-- Insurance brokerages
-- Benefits administrators
-- Credit unions and regional banks with high phone-support volume
-- Fintechs with regulated customer-support workflows
+## Reuse Assessment
 
-### Expansion Buyers
+This is a pivot in product story and visual surface, not a ground-up rewrite of
+the stack.
 
-- Government agencies handling benefits access and document follow-up
-- Utilities and telecom companies handling billing disputes and service restoration
-- Universities handling financial aid and disability services
-- Senior care organizations coordinating insurance, billing, and service calls
-- Enterprise support teams with accessibility and compliance obligations
+### Reuse Directly
 
-## End Users
+These pieces can stay conceptually intact:
 
-The direct users are people who need help completing phone calls, including:
+- Next.js web app shell.
+- Existing Three.js dependency and current CommandOS landing direction.
+- LiveKit session/token foundation.
+- Python LiveKit agent foundation.
+- Typed event-stream architecture over LiveKit data channels.
+- Memory event pattern: `memory.recalled`, `memory.written`.
+- Knowledge event pattern: `knowledge.retrieved`.
+- Guardrail event pattern: `guardrail.checked`.
+- Language event pattern: `language.switched`.
+- Voice event pattern: `voice.spoken`.
+- Outcome/audit event pattern: `outcome.created`, `audit.saved`.
+- Sponsor trace idea in the portal.
+- Local stub strategy when sponsor credentials or live paths are blocked.
 
-- People with speech disabilities
-- People with hearing disabilities
-- People using AAC
-- People recovering from stroke or vocal injury
-- People with ALS, Parkinson's, aphasia, or other communication-impacting conditions
-- People with severe phone anxiety or selective mutism
-- Older adults who struggle with phone workflows
-- Non-native speakers who need simplified, paced phone support
-- Multilingual customers who switch languages mid-call
-- Caregivers assisting another person's calls
+### Reuse With Renaming Or Thin Adaptation
 
-## Business Use Cases
+These pieces should be adapted rather than thrown away:
 
-### Insurance Use Cases
+- `/console` becomes the operator command surface.
+- `/portal` becomes the incident command dashboard.
+- `VoiceBridgeEvent` can remain as the technical event envelope for speed, but
+  the visible product language should become CommandOS.
+- Consent/approval patterns become operational approval gates.
+- Sensitive-field guardrails become risky-action guardrails.
+- MOSS memory moves from customer communication profile to incident memory and
+  similar-failure recall.
+- UnSiloed knowledge moves from claim documents to runbooks, escalation policy,
+  and incident response docs.
+- Outcome card becomes incident packet: timeline, mitigation, blocked action,
+  customer update, and postmortem skeleton.
 
-1. Claims follow-up
-   - A policyholder uses VoiceBridge to ask about an auto, home, renters, or disability claim.
-   - VoiceBridge asks before sharing claim number, policy ID, address, date of loss, or contact details.
-   - The insurer receives a structured outcome: claim status, missing documents, deadline, and next action.
+### Rewrite
 
-2. Returning claimant memory
-   - The same policyholder calls again about the same claim.
-   - VoiceBridge remembers the prior conversation, missing documents, preferred language, and communication style.
-   - The call starts from context instead of forcing the user to repeat everything.
+These parts should be replaced:
 
-3. Document follow-up
-   - The insurer asks for photos, receipts, repair estimates, police reports, or proof of loss.
-   - VoiceBridge helps the user ask where to upload the documents and by what deadline.
-   - The outcome card records required documents and next steps.
+- VoiceBridge product positioning.
+- Insurance/accessibility phone-call narrative.
+- Northstar Insurance claim workflow.
+- End-user/caregiver persona.
+- Claim-number consent flow.
+- Insurer representative dialogue.
+- Accessibility-first product principles.
+- README/spec language that says the product is B2B2C phone access.
 
-4. Benefits or coverage explanation
-   - A member asks what a representative said about benefits, deductibles, or coverage status.
-   - VoiceBridge does not interpret policy or promise coverage.
-   - It asks clarifying questions, repeats the insurer's answer, and stores the reference number.
+### New Work Needed
 
-5. Multilingual member support
-   - A caller begins in English and switches to Spanish, Hindi, or another supported language mid-call.
-   - VoiceBridge keeps the same claim context while switching the user-side prompts and spoken output.
-   - The insurer gets one coherent transcript and outcome record.
+These are the main new demo surfaces:
 
-6. Caregiver-assisted insurance calls
-   - A caregiver helps a member or policyholder complete a claims or benefits call.
-   - VoiceBridge stores caregiver permissions and asks before allowing sensitive information to be shared.
-   - The profile remembers when the caregiver can participate and what they may receive.
+- 3D orb state machine: idle, listening, thinking, building, speaking.
+- 3D Texas failure map with city hotspots.
+- 3D payment topology: app -> checkout API -> gateway -> processor -> bank rails.
+- Failure localization animation.
+- Prior-incident ghost overlay.
+- Mitigation architecture morph with secondary gateway and load balancer.
+- 3D approval card for blocked restart.
+- Dashboard/report generation transition.
+- New scripted conversational flow for the incident.
 
-### Banking and Fintech Use Cases
+### Estimated Reuse
 
-1. Card dispute status
-   - A customer calls about an existing dispute.
-   - VoiceBridge asks before sharing account, card, transaction, or address details.
-   - It records dispute status and next required action.
+For a hackathon-scoped demo:
 
-2. Account access support
-   - A customer struggles with verification or lockout support.
-   - VoiceBridge helps them communicate with the support representative.
-   - It does not authenticate independently, move money, change passwords, or approve transactions.
+| Area | Reuse Estimate |
+|---|---:|
+| Runtime stack and package choices | 80% |
+| Sponsor integration architecture | 70% |
+| Typed event-stream pattern | 60% |
+| Existing business logic text/data | 15% |
+| Existing visible UI | 25% |
+| Existing spec narrative | 10% |
+| Overall app effort if scoped tightly | 50-60% |
 
-3. Fraud or suspicious-activity follow-up
-   - VoiceBridge helps a customer ask what action is needed.
-   - It prompts the user before any sensitive disclosure.
-   - It summarizes the institution's instructions without making fraud determinations.
-
-### Enterprise Support Use Cases
-
-1. Accessible customer support
-   - A company embeds VoiceBridge into support workflows.
-   - Customers who cannot speak or cannot stay in one language can complete phone-only tasks.
-   - Support teams receive structured summaries and audit records.
-
-2. Repeat customer continuity
-   - A returning customer calls about the same issue.
-   - VoiceBridge retrieves the prior call outcome, unresolved action, consent rules, and preferred language.
-   - The business can continue the conversation without forcing the customer to restart.
+The practical path is to reuse the runtime and rewrite the demo-facing
+experience.
 
 ## Product Principles
 
-1. User agency first
-   - VoiceBridge speaks for the user only within the user's confirmed intent.
-   - The user can pause, correct, take over, or end the call.
+1. Conversation before dashboard
+   - CommandOS should ask useful follow-up questions.
+   - The demo must not feel like a voice-triggered slideshow.
 
-2. Consent before sensitive disclosure
-   - The system must not share sensitive personal, medical, insurance, financial, or identity details without explicit user confirmation.
+2. Spatial diagnosis first
+   - The system should turn operational data into a 3D map and topology before
+     showing a conventional dashboard.
 
-3. Communication memory is the asset
-   - The durable profile is more important than any single call.
-   - MOSS stores user communication preferences, consent rules, corrections, and prior outcomes.
+3. Memory must change the recommendation
+   - MOSS recall should not be decorative.
+   - The prior incident must explain why a naive restart is unsafe.
 
-4. Institutional deployment, user-owned profile
-   - Businesses deploy the service.
-   - Users retain control over their communication profile and consent rules.
+4. Guardrails must block action
+   - TrueFoundry/local policy must stop risky commands until required checks and
+     human approval are satisfied.
 
-5. No medical, legal, financial, or coverage advice
-   - VoiceBridge expresses user intent, asks questions, summarizes outcomes, and supports communication.
-   - It does not interpret legal rights, give financial advice, move money, approve claims, deny claims, or promise insurance coverage.
+5. The final artifact must be useful
+   - The final dashboard/report should include root-cause hypothesis,
+     mitigation, action log, customer update, and postmortem skeleton.
 
-6. Auditable by design
-   - Every sensitive disclosure, correction, and profile change should have provenance.
+6. Be honest about live vs stubbed paths
+   - Sponsor usage should be visible.
+   - If a live integration is not actually called, label the local path clearly.
 
-## MVP Scope
+## Conversational Demo Flow
 
-The hackathon MVP should prove one controlled insurance claim workflow.
+### Opening
 
-### In Scope
+Screen is black except for a glowing 3D orb.
 
-1. Business-deployed insurer portal
-   - Demo organization: "Northstar Insurance"
-   - Shows active calls, communication profile, consent events, and outcome summaries.
-
-2. User console
-   - User enters intent with text or quick actions.
-   - User can approve or deny sensitive disclosures.
-   - User can correct tone or pacing.
-
-3. Controlled insurer call
-   - A scripted insurer-side agent replaces a real third-party insurer.
-   - This keeps the demo deterministic and scalable.
-
-4. Communication profile
-   - Stored in MOSS or a MOSS-shaped memory abstraction.
-   - Includes style, pacing, preferred language, language-switch behavior, consent rules, caregiver permissions, corrections, and call history.
-
-5. Consent gate
-   - Detects requests for sensitive information.
-   - Pauses the call flow and asks the user before sharing.
-
-6. Voice response
-   - VoiceBridge speaks to the insurer in natural language.
-   - Responses should reflect the active communication profile.
-
-7. Returning-caller memory
-   - The same customer calls again.
-   - VoiceBridge recalls the prior claim status, missing documents, and language preference.
-   - The customer does not need to restate the whole issue.
-
-8. Mid-call language switch
-   - The customer switches from English to another language during the call.
-   - VoiceBridge keeps the same claim context and continues comfortably in the new language.
-
-9. Correction learning
-   - User taps "less formal", "shorter", "slower", or "ask me first next time".
-   - The profile updates immediately.
-   - A replayed response shows changed behavior.
-
-10. Outcome card
-   - Summarizes call result.
-   - Shows what was shared, what was approved, and what was learned.
-
-### Out of Scope for MVP
-
-- Real insurer outbound calling
-- Production core insurance-system integration
-- Real insurance integration
-- Coverage decisions
-- Claim approval or denial
-- Emergency calling
-- Open-ended autonomous calling
-- Full regulated-compliance certification
-- Consumer app-store distribution
-- Multi-tenant enterprise administration beyond a demo-ready shell
-
-## Demo Script
-
-### Setup
-
-Organization: Northstar Insurance
-
-User profile:
-
-- Name: Ayush
-- Preferred style: short and direct
-- Pacing: slow, with confirmation pauses
-- Preferred language: English, with Spanish support
-- Consent rule: ask before sharing claim number, policy ID, address, date of loss, or phone number
-- Correction history: avoid overly formal phrasing
-- Prior call memory: claim H-48291 is pending; insurer requested damage photos and repair estimate
-
-### Step 1: User Starts Call
-
-User intent:
+Presenter says:
 
 ```text
-Ask about my home insurance claim. Keep it short. Ask before sharing my claim number.
+This is CommandOS. Instead of opening dashboards, I talk to the operating
+system and it builds the incident workspace with me.
 ```
 
-VoiceBridge retrieves:
+### 1. Vague Question
+
+Operator:
 
 ```text
-Style: short and direct
-Pacing: slow
-Language: English, can switch to Spanish
-Prior context: claim H-48291 pending, photos and repair estimate missing
-Sensitive info: ask before claim number, policy ID, address, date of loss
+CommandOS, why are payments failing?
 ```
 
-Sponsor path:
+CommandOS:
 
 ```text
-MOSS recalls profile + prior claim context
-UnSiloed parsed the claim notice and document checklist
-LiveKit carries the live call
-TrueFoundry enforces disclosure and no-claim-decision guardrails
-Qwen handles multilingual intent and Spanish switch
-Minimax provides low-latency spoken output
-AWS hosts the demo backend, audit events, and static frontend
+Do you want me to inspect the last 15 minutes, last hour, or today?
 ```
 
-### Step 2: Insurer Recognizes Returning Caller
-
-Insurance representative:
+Operator:
 
 ```text
-I see you called yesterday about a home claim. Are you calling about the same claim?
+Last hour. Premium customers only.
 ```
 
-VoiceBridge asks the user:
+Expected UI:
+
+- Orb opens.
+- Listening ring changes to analysis state.
+- Query scope appears as floating chips: `last hour`, `premium customers`.
+
+### 2. 3D Map Appears
+
+CommandOS builds a 3D map.
+
+Expected UI:
+
+- Texas rises from the orb.
+- Dallas, Austin, and Houston pulse red.
+- Failure beams animate over the region.
+- Floating metrics show failure rate and affected segment.
+
+CommandOS:
 
 ```text
-They found your prior call.
-Should I confirm this is the same claim?
-
-[Confirm same claim] [Different claim] [Ask what they see]
+I found a regional spike. Texas premium customers are failing at 18.4%,
+compared with a 2.1% baseline. Should I inspect by city, payment method,
+or processor?
 ```
 
-User selects:
+Operator:
 
 ```text
-Confirm same claim
+City first.
 ```
 
-VoiceBridge:
+### 3. Conversational Drilldown
+
+Expected UI:
+
+- Camera zooms into Dallas, Austin, and Houston.
+- Dallas shows highest failed-transaction volume.
+- Austin shows steepest spike.
+- Houston shows secondary concentration.
+
+CommandOS:
 
 ```text
-Yes, this is about the same home claim from yesterday.
+Dallas has the highest volume. Austin has the steepest spike. Want me to
+trace where the payment flow breaks?
 ```
 
-### Step 3: Insurer Asks for Sensitive Information
-
-Insurance representative:
+Operator:
 
 ```text
-Can I have the claim number?
+Yes, trace the flow.
 ```
 
-VoiceBridge pauses and shows:
+### 4. 3D Payment Topology
+
+Expected UI:
+
+The map connects to a floating architecture model:
 
 ```text
-The insurer is asking for your claim number.
-Can I share it?
-
-[Share] [Type different answer] [Ask why]
+Customer app -> Checkout API -> Payment Gateway -> Processor -> Bank rails
 ```
 
-User selects:
+The payment gateway glows red. Failed payment streams break between gateway
+and processor.
+
+CommandOS:
 
 ```text
-Share
+Failures pass checkout validation and gateway authorization, then stall before
+processor confirmation. This points to gateway queue saturation, not card
+declines.
 ```
 
-VoiceBridge:
+### 5. Self-Improving Harness
+
+Operator:
 
 ```text
-Yes, the claim number is H-48291.
+Have we seen this before?
 ```
 
-### Step 4: Insurer Gives Next Steps
+Expected UI:
 
-Insurance representative:
+- A ghost layer overlays the current map.
+- Prior incident hotspots align with the current Texas spike.
+- A memory panel appears next to the 3D topology.
+
+CommandOS:
 
 ```text
-The claim is still pending. We need photos of the damage and a repair estimate.
+Yes. I found a similar Texas spike last month. Do you want the short version
+or the full timeline?
 ```
 
-VoiceBridge asks:
+Operator:
 
 ```text
-They need damage photos and a repair estimate.
-What should I ask?
-
-[Ask upload link] [Ask deadline] [Ask for adjuster]
+Short version.
 ```
 
-User selects:
+CommandOS:
 
 ```text
-Ask upload link
+The team restarted too early. Queue depth was still high, and duplicate-charge
+risk increased. The successful fix was shifting Texas traffic to a secondary
+gateway before restart.
 ```
 
-VoiceBridge:
+### 6. Recommendation In 3D
+
+CommandOS:
 
 ```text
-Where should the photos and repair estimate be uploaded, and is there a deadline?
+My recommendation is: check queue depth, shift Texas traffic to the secondary
+gateway, then approve a controlled restart. Should I build the mitigation view?
 ```
 
-### Step 5: User Switches Language Mid-Call
-
-User types:
+Operator:
 
 ```text
-Responde en espanol. Estoy nerviosa.
+Show me.
 ```
 
-VoiceBridge updates the live call context:
+Expected UI:
+
+- Secondary gateway appears.
+- Load balancer appears.
+- Texas traffic reroutes.
+- Red payment streams become green.
+- A mitigation sequence appears as numbered action cards.
+
+### 7. Guardrail Moment
+
+Operator:
 
 ```text
-Language switch detected: Spanish
-Keep same claim context
-Use short, calm phrasing
+Just restart the gateway now.
 ```
 
-Insurance representative:
+CommandOS:
 
 ```text
-The deadline is Friday, and the upload link is in the claims portal.
+I cannot recommend that yet. Queue depth is unknown, and this exact sequence
+caused duplicate-charge risk last time. I can run the queue-depth check or
+prepare an approval request. Which do you want?
 ```
 
-VoiceBridge to user:
+Operator:
 
 ```text
-Necesitan las fotos y el presupuesto antes del viernes. El enlace esta en el portal de reclamos.
+Prepare the approval request.
 ```
 
-VoiceBridge to insurer:
+### 8. Approval Card
+
+Expected UI:
+
+A 3D approval card appears:
+
+- Requested action: controlled payment gateway restart.
+- Status: blocked pending queue-depth check.
+- Risk: duplicate charges and retry storms.
+- Required check: queue depth below threshold.
+- Required approver: Payments on-call.
+- Prior incident warning: included.
+
+CommandOS:
 
 ```text
-Thank you. Please note that the claimant will upload the photos and repair estimate before Friday.
+Approval request prepared for controlled gateway restart after queue-depth
+check. Should I include the prior incident warning?
 ```
 
-### Step 6: User Corrects Style
-
-User taps:
+Operator:
 
 ```text
-Less formal next time
+Yes.
 ```
 
-MOSS profile update:
+### 9. Dashboard Generation
+
+CommandOS:
 
 ```text
-Correction: use shorter, calmer wording for insurance claim calls.
-Source: user correction during call.
-Applies to: insurance claim follow-up.
+Want this converted into a clean incident dashboard and report?
 ```
 
-### Step 7: Outcome
-
-Outcome card:
+Operator:
 
 ```text
-Claim status: pending
-Claim number: H-48291
-Missing documents: damage photos, repair estimate
-Deadline: Friday
-Sensitive info shared: claim number
-Approval: user approved sharing claim number
-Language switch: English to Spanish
-Preference learned: shorter, calmer claim-call language
-Follow-up: upload documents in claims portal
+Yes, include a customer update.
 ```
 
-## Product Architecture
+Expected UI:
+
+- 3D scene folds into a dashboard.
+- The orb becomes a command/status node.
+- The report fills from the event log.
+
+### 10. Final Dashboard
+
+Dashboard sections:
+
+- 3D failure map.
+- City-level payment failures.
+- Payment topology.
+- Prior incident match.
+- Root-cause hypothesis.
+- Recommended mitigation.
+- Blocked unsafe action.
+- Approval request.
+- Customer update draft.
+- Postmortem skeleton.
+- Sponsor/runtime trace.
+
+Final presenter line:
 
 ```text
-Business Portal + User Console
-      |
-      v
-AWS-hosted App/API  --->  Audit/Event Store
-      |
-      v
-LiveKit Session  --->  Controlled Insurer Line
-      |
-      v
-Call Orchestrator
-      |
-      +--> TrueFoundry Gateway / Guardrails
-      |       - model routing
-      |       - sensitive-disclosure policy
-      |       - no claim approval/denial policy
-      |
-      +--> MOSS Memory Layer
-      |       - communication memory index
-      |       - business knowledge index
-      |
-      +--> UnSiloed Parsed Business Docs
-      |       - claim letters
-      |       - policy notices
-      |       - upload instructions
-      |
-      +--> Qwen
-      |       - multilingual reasoning
-      |       - language switch detection
-      |
-      +--> Minimax
-              - low-latency TTS
-              - natural voice response
+Dashboards show what broke. CommandOS talks through the incident with you,
+builds the live 3D model, remembers what happened last time, blocks unsafe
+actions, and turns the whole incident into an operating dashboard.
 ```
 
-## Hackathon Implementation Path
+## Demo Data
 
-Use the Moss Hacker Starter architecture as the practical build path:
-
-- LiveKit Agents for the real-time voice session.
-- LiveKit Inference or LiveKit-compatible model routing for STT and agent turn handling.
-- MOSS for retrieval and durable memory.
-- A React or Next.js frontend with a live context panel.
-- A Python LiveKit agent with tools that read and write scoped MOSS memories.
-- TrueFoundry as the gateway for model routing and guardrail enforcement.
-- UnSiloed for parsing unstructured insurance documents into business knowledge.
-- Minimax for low-latency spoken output.
-- Qwen for multilingual reasoning and language-switch behavior.
-- AWS for app/API hosting and audit-event persistence.
-
-The sponsor integrations should not be decorative. Each one should be visible in either the call path, memory path, guardrail path, document path, or deployment path.
-
-### Sponsor-Critical Runtime Flow
-
-```text
-1. UnSiloed parses an insurer claim notice and upload-instruction PDF.
-2. Parsed business knowledge is indexed into MOSS.
-3. MOSS stores the customer's communication profile and prior claim memory.
-4. LiveKit starts the live call between user, VoiceBridge, and the controlled insurer line.
-5. The agent routes model calls through TrueFoundry.
-6. TrueFoundry blocks unsafe actions such as sharing claim number without approval or approving/denying the claim.
-7. Qwen detects the English-to-Spanish switch and preserves the same claim context.
-8. Minimax speaks the response with low latency.
-9. AWS stores the transcript, consent event, language-switch event, and outcome card.
-```
-
-### Sponsor Integration Bar
-
-For the hackathon, "used" means the sponsor has a necessary role in the working path or in a faithful local stub that mirrors the real integration contract.
-
-Must be working in the demo:
-
-- LiveKit live session
-- MOSS retrieval and memory write
-- Consent gate before sensitive disclosure
-- Mid-call language switch behavior
-
-Should be working if credentials/time allow:
-
-- UnSiloed document parse into MOSS business knowledge
-- Minimax spoken response
-- Qwen multilingual model path
-- TrueFoundry guardrail/model gateway
-- AWS hosted deployment or audit event persistence
-
-Acceptable fallback if integration setup is blocked:
-
-- Use a pre-parsed UnSiloed-style claim document, but show the parser contract and resulting MOSS index entry.
-- Use local guardrail code, but keep the TrueFoundry policy interface in the architecture.
-- Use a local voice/model fallback, but keep Minimax/Qwen visible as the intended voice and multilingual providers.
-- Run locally, but include AWS deployment path and audit store schema.
-
-The final pitch should be honest about which integrations are live and which are represented by compatible stubs.
-
-### MOSS Indexes
-
-The MVP should use two MOSS indexes:
-
-1. Business knowledge index
-   - Stores insurer-side static knowledge.
-   - Source: UnSiloed-parsed claim letters, document checklists, upload instructions, policy notice excerpts, escalation rules.
-
-2. Communication memory index
-   - Stores user and case memory.
-   - Example memories: preferred language, pacing, consent rules, prior claim call summary, missing documents, correction history.
-
-All memory reads and writes must be scoped by metadata:
+### Incident
 
 ```json
 {
-  "tenant_id": "northstar_insurance",
-  "user_id": "ayush_demo",
-  "case_id": "home_claim_H-48291"
-}
-```
-
-The key demo point is that the same `user_id` and `case_id` produce continuity when the person calls again.
-
-### Agent Tools
-
-The voice agent should expose a small tool surface:
-
-1. `search_business_knowledge`
-   - Searches insurer-side docs, scripts, and rules.
-   - Used for upload instructions, document requirements, escalation rules, and approved phrasing.
-
-2. `recall_customer_context`
-   - Retrieves prior call memory for the current user and case.
-   - Used when the same customer calls again.
-
-3. `remember_call_event`
-   - Writes structured call events to MOSS.
-   - Used for consent approvals, language switches, missing documents, preferences, and outcomes.
-
-4. `check_sensitive_disclosure`
-   - Classifies whether a requested field needs explicit user approval.
-   - Used before claim number, policy ID, address, date of loss, phone number, or payment details are spoken.
-
-5. `parse_business_document`
-   - Calls UnSiloed to turn uploaded claim notices or policy PDFs into structured text.
-   - Used before indexing business knowledge into MOSS.
-
-6. `route_guarded_model_call`
-   - Routes LLM and policy-check calls through TrueFoundry.
-   - Used for governance, fallback routing, and guardrail checks.
-
-7. `detect_language_switch`
-   - Uses Qwen or the configured multilingual model to detect and preserve mid-call language changes.
-   - Used when the user switches from English to Spanish or another supported language.
-
-8. `speak_response`
-   - Uses Minimax or the configured low-latency voice model to speak the next approved response.
-   - Used after consent and guardrail checks pass.
-
-### Frontend Context Events
-
-The frontend should show MOSS activity in real time, similar to a knowledge matches panel:
-
-- Retrieved prior call summary
-- Retrieved communication preferences
-- Consent rule matched
-- Business knowledge match
-- Language switch detected
-- Memory write completed
-- Outcome saved
-
-The frontend should also expose sponsor-level observability:
-
-- UnSiloed parsed source document
-- MOSS retrieval score and matched memory
-- TrueFoundry guardrail decision
-- Qwen language-switch decision
-- Minimax voice response event
-- AWS audit event saved
-
-This matters for judges because it makes MOSS visible. They should see memory retrieval and memory writes changing the call while it happens.
-
-## Core Components
-
-### 1. Business Portal
-
-Business-facing surface for deployment and monitoring.
-
-Capabilities:
-
-- Configure organization identity
-- Start or review assisted calls
-- View consent events and call outcomes
-- View accessibility usage metrics
-- Export call summaries
-
-### 2. User Console
-
-End-user control surface.
-
-Capabilities:
-
-- Enter intent
-- Select quick responses
-- Approve sensitive disclosures
-- Correct tone, pacing, and phrasing
-- Pause or end call
-- Review outcome
-
-### 3. Consent Gate
-
-Runtime safety layer.
-
-Responsibilities:
-
-- Detect requests for sensitive fields
-- Classify field type
-- Check user consent rules
-- Pause before disclosure
-- Record approval, denial, or alternate answer
-
-Sensitive field examples:
-
-- Date of birth
-- Address
-- Phone number
-- Claim number
-- Policy ID
-- Date of loss
-- Medication
-- Social Security number
-- Payment information
-- Caregiver contact information
-
-### 4. Call Orchestrator
-
-Conversation manager that decides the next action.
-
-Responsibilities:
-
-- Maintain call state
-- Generate response options for the user
-- Produce spoken responses for the insurer
-- Respect pacing and style preferences
-- Preserve context across language switches
-- Route sensitive details through the consent gate
-- Produce structured outcome data
-
-### 5. Communication Profile
-
-MOSS-backed durable memory object.
-
-Example schema:
-
-```json
-{
-  "profile_id": "user_ayush_demo",
-  "owner_type": "policyholder",
-  "style_preferences": {
-    "tone": "short_direct",
-    "formality": "low",
-    "pace": "slow",
-    "verbosity": "concise"
-  },
-  "language_preferences": {
-    "default": "en",
-    "supported": ["en", "es"],
-    "allow_mid_call_switch": true
-  },
-  "consent_rules": [
+  "tenant_id": "atlaspay",
+  "tenant_display_name": "AtlasPay",
+  "incident_id": "sev1_tx_payments_2026_06_07",
+  "incident_title": "Texas premium payment failures",
+  "window": "last_hour",
+  "segment": "premium_customers",
+  "baseline_failure_rate": 0.021,
+  "current_failure_rate": 0.184,
+  "region": "Texas",
+  "cities": [
     {
-      "field": "claim_number",
-      "rule": "ask_every_time"
+      "city": "Dallas",
+      "failure_rate": 0.211,
+      "failed_transactions": 1284,
+      "note": "highest failed-transaction volume"
     },
     {
-      "field": "policy_id",
-      "rule": "ask_every_time"
+      "city": "Austin",
+      "failure_rate": 0.297,
+      "failed_transactions": 742,
+      "note": "steepest spike"
     },
     {
-      "field": "address",
-      "rule": "ask_every_time"
-    }
-  ],
-  "common_phrases": [
-    "Please repeat that.",
-    "I need a moment.",
-    "Can you say that more simply?"
-  ],
-  "caregiver_permissions": [],
-  "corrections": [
-    {
-      "scope": "insurance_claim_follow_up",
-      "instruction": "Use shorter, calmer wording.",
-      "source": "user_tap",
-      "created_at": "2026-06-07T00:00:00Z"
-    }
-  ],
-  "call_history": [
-    {
-      "organization": "Northstar Insurance",
-      "topic": "home_claim_H-48291",
-      "outcome": "claim_pending_documents_needed",
-      "missing_documents": ["damage_photos", "repair_estimate"],
-      "shared_sensitive_fields": ["claim_number"],
-      "last_language": "es"
+      "city": "Houston",
+      "failure_rate": 0.163,
+      "failed_transactions": 618,
+      "note": "secondary concentration"
     }
   ]
 }
 ```
 
-### 6. Memory Writer
+### Payment Topology
 
-Writes durable, auditable changes.
+```json
+{
+  "nodes": [
+    "customer_app",
+    "checkout_api",
+    "payment_gateway",
+    "processor",
+    "bank_rails"
+  ],
+  "suspected_failure_point": "payment_gateway_to_processor",
+  "hypothesis": "gateway queue saturation",
+  "not_likely": ["card_declines", "checkout_validation_failure"]
+}
+```
 
-Events:
+### Prior Incident Memory
 
-- Consent approved
-- Consent denied
-- User correction received
-- Outcome generated
-- Profile preference updated
-- Caregiver permission changed
+```json
+{
+  "source": "moss",
+  "similarity": 0.91,
+  "incident": "may_2026_texas_gateway_saturation",
+  "what_happened": "Texas payment failures spiked after gateway queues backed up.",
+  "bad_action": "Gateway restart before queue-depth check increased duplicate-charge risk.",
+  "successful_action": "Traffic shifted to secondary gateway, then a controlled restart was approved.",
+  "owner": "payments_platform_on_call"
+}
+```
 
-Each event should include:
+### Mitigation Plan
 
-- Timestamp
-- Actor
-- Source
-- Call ID
-- Before value
-- After value
-- Reason
-
-## Large-Scale Deployment Model
-
-VoiceBridge should be designed as a multi-tenant business platform.
-
-### Deployment Customers
-
-Each customer is an organization:
-
-- Insurer
-- Claims administrator
-- Benefits administrator
-- Bank
-- Credit union
-- Fintech support organization
-- Government agency
-- Enterprise support organization
-
-### Tenant Model
-
-Each tenant has:
-
-- Organization settings
-- Approved call workflows
-- Allowed data fields
-- Consent policy defaults
-- Staff dashboard access
-- Audit logs
-- Integration settings
-
-Each end user has:
-
-- Customer-owned, member-owned, or policyholder-owned communication profile
-- Organization-specific call history
-- Cross-organization preferences where authorized
-- Consent and sharing rules
-- Preferred languages and language-switch history
-- Returning-issue memory for claims, disputes, cases, and benefits questions
-
-### Scaling Requirements
-
-1. Horizontal call scaling
-   - Call sessions must run independently.
-   - The call orchestrator should be stateless where possible.
-   - Session state should be recoverable from event logs and memory.
-
-2. Memory retrieval at low latency
-   - Communication profile retrieval must happen before responses are generated.
-   - Consent rules must be checked before any sensitive answer is spoken.
-   - Prior issue memory must be retrieved when the same person calls again.
-   - Language preference and current language must be available to the call orchestrator in real time.
-
-3. Event-sourced audit trail
-   - Every consent and profile update should be append-only.
-   - Outcome summaries should be reproducible from call events.
-
-4. Controlled workflow templates
-   - Organizations should deploy approved workflows for claims, benefits, disputes, billing, document follow-up, and service restoration.
-   - VoiceBridge should not improvise beyond allowed workflow boundaries.
-
-5. Admin controls
-   - Tenant admins can configure allowed fields and escalation rules.
-   - Users can override personal preferences and consent behavior.
-
-6. Observability
-   - Track call completion rate.
-   - Track consent prompts.
-   - Track unresolved calls.
-   - Track user corrections.
-   - Track staff escalations.
-   - Track latency and failure modes.
-
-## Security, Privacy, and Compliance Guardrails
-
-VoiceBridge is not production-compliant by default in the hackathon MVP. The product direction must assume production-grade controls for regulated insurance and financial-service environments.
-
-Required production controls:
-
-- Encryption in transit and at rest
-- Per-tenant data isolation
-- User-owned consent controls
-- Role-based access control
-- Audit logs for every sensitive disclosure
-- Retention policies
-- Deletion/export workflows
-- Staff access review
-- Incident monitoring
-- No model training on customer data without explicit agreement
-- Human escalation path
-
-Insurance and financial-service deployment considerations:
-
-- VoiceBridge should not approve or deny claims.
-- VoiceBridge should not interpret policy language as legal or financial advice.
-- VoiceBridge should not move money, change account credentials, or authorize transactions.
-- Sensitive identifiers such as claim number, policy ID, account number, address, date of loss, and payment information must require explicit consent before disclosure.
-- Human escalation is required for fraud, dispute, claim denial, coverage interpretation, account lockout, and legal-risk scenarios.
-- For health insurance deployments, HIPAA obligations may apply when PHI is handled.
-
-Telecom deployment considerations:
-
-- Outbound AI-generated voice calls may trigger TCPA obligations unless a valid exemption or consent path applies.
-- The product should identify itself when required.
-- The MVP should use a controlled insurer line, not real outbound calls.
-
-## Key Metrics
-
-### Business Metrics
-
-- Call completion rate
-- Reduction in abandoned accessibility-related phone tasks
-- Reduction in staff follow-up calls
-- Average time to complete claim, benefit, dispute, or billing call
-- Number of users served per organization
-- Repeat usage per user
-- Business retention
-
-### Accessibility Metrics
-
-- Number of calls completed without live caregiver intervention
-- Number of successful consent-gated disclosures
-- User correction rate
-- Preference reuse rate
-- User-reported confidence after calls
-
-### Safety Metrics
-
-- Sensitive disclosure without approval: must be zero
-- Wrong-recipient disclosure: must be zero
-- Financial, legal, or coverage advice generated by agent: must be zero
-- Escalation rate for uncertain requests
-- Audit event completeness
-
-### Technical Metrics
-
-- Response latency
-- Memory retrieval latency
-- TTS latency
-- Consent prompt latency
-- Call drop rate
-- Transcript completeness
-
-## Differentiation
-
-VoiceBridge differs from consumer AI calling assistants by being:
-
-- Business deployed
-- Accessibility and compliance oriented
-- Built around user-owned communication profiles
-- Consent-aware by default
-- Auditable for organizations
-- Designed for repeat workflows, not one-off tasks
-- Focused on high-stakes institutional calls
-
-VoiceBridge differs from relay services by adding:
-
-- Durable personalization
-- Consent memory
-- Outcome summaries
-- Correction-based learning
-- Integration with institutional workflows
-
-VoiceBridge differs from AAC tools by adding:
-
-- Live call orchestration
-- Sensitive information gating
-- Workflow completion
-- Organization-facing deployment and auditability
+```json
+{
+  "recommended_sequence": [
+    "check_gateway_queue_depth",
+    "shift_texas_traffic_to_secondary_gateway",
+    "prepare_controlled_restart_approval",
+    "restart_gateway_after_approval",
+    "add_regional_load_balancing_followup"
+  ],
+  "blocked_action": "restart_gateway_now",
+  "block_reason": "queue depth unknown and duplicate-charge risk unresolved"
+}
+```
 
 ## Sponsor Fit
 
-Every sponsor should be used in the MVP path. The demo should show a compact "runtime trace" so judges can see each one doing real work.
-
-### MOSS
-
-Required role: core memory and retrieval layer.
-
-Stores:
-
-- Communication profiles
-- Consent rules
-- Prior claim context
-- Correction history
-- Language preferences
-- Call outcomes
-- Business knowledge retrieved from parsed documents
-
-Most important demo moment:
-
-- The profile changes the call behavior in real time.
-- Example: user preference says "short and direct", so VoiceBridge speaks more concisely.
-- Example: consent rule says "ask before claim number", so VoiceBridge pauses before sharing.
-- Example: prior call memory says claim H-48291 is pending documents, so the next call starts from context.
-- Example: language memory says Spanish is supported, so VoiceBridge switches language mid-call without losing claim state.
+Every sponsor should be visible in the working path or in an honest local stub
+that mirrors the integration contract.
 
 ### LiveKit
 
-Required role: real-time conversational transport.
+Role: real-time conversational transport.
 
-Runs:
+Used for:
 
-- Browser microphone/audio session
-- VoiceBridge agent session
-- Controlled insurer line
-- Data packets for live context events
-- Low-latency turn-taking
+- Operator voice session.
+- Agent audio path.
+- Data-channel event stream for 3D scene state.
+- Room/session identity.
 
-### TrueFoundry
+Most visible moment:
 
-Required role: model gateway, guardrails, and governance.
+- The orb responds conversationally and the UI updates from live command events.
 
-Enforces:
+### MOSS
 
-- Do not share sensitive fields without explicit approval
-- Do not approve or deny claims
-- Do not interpret policy as legal or financial advice
-- Route multilingual/model calls to the correct model
-- Log model and policy decisions for auditability
+Role: incident memory and self-improving harness.
 
-### UnSiloed AI
+Stores:
 
-Required role: parse unstructured business knowledge.
+- Prior incident patterns.
+- Failed mitigations.
+- Successful mitigations.
+- Incident owners.
+- Region/system fingerprints.
+- Final incident reports.
+
+Most visible moment:
+
+- CommandOS recalls the previous Texas gateway incident and changes its
+  recommendation because restart alone was unsafe last time.
+
+### UnSiloed
+
+Role: parse unstructured incident docs and runbooks.
 
 Parses:
 
-- Claim letters
-- Policy notices
-- Document requests
-- Billing letters
-- Benefits explanations
-- Dispute notices
-- Account-support instructions
+- Payments outage runbook.
+- Escalation policy.
+- Approval checklist.
+- Queue-depth restart policy.
+- Customer communication template.
 
-The parsed output becomes MOSS business knowledge, so the agent can answer from insurer-approved source material instead of guessing.
+Most visible moment:
 
-### AWS
+- CommandOS cites the operational rule that gateway restart requires queue-depth
+  check and approval.
 
-Required role: deployment and durable audit infrastructure.
+### TrueFoundry
 
-Hosts:
+Role: model routing, guardrails, and risky-action governance.
 
-- Frontend
-- Agent/API backend
-- Audit/event store
-- Static uploaded demo documents
-- Environment configuration and deployment path
+Enforces:
 
-The MVP can run locally during development, but the pitch should show AWS as the scalable deployment path for business customers.
+- Do not recommend restart until required checks pass.
+- Do not execute or imply execution of risky infrastructure actions.
+- Require approval for controlled restart.
+- Log policy decisions.
 
-### Minimax
+Most visible moment:
 
-Required role: low-latency speech output and natural response delivery.
+- "Just restart the gateway now" is blocked.
+
+### MiniMax
+
+Role: low-latency spoken output.
 
 Used for:
 
-- Spoken responses to the insurer
-- Calm, short, user-preferred voice style
-- Fast response after consent and guardrail checks pass
+- Spoken incident status.
+- Short operational updates.
+- Voice confirmation that a risky action is blocked.
+
+Most visible moment:
+
+- CommandOS speaks the status update while the 3D scene changes.
 
 ### Qwen
 
-Required role: multilingual reasoning and voice/language behavior.
+Role: conversational reasoning and multilingual support.
 
 Used for:
 
-- Detecting mid-call language switches
-- Keeping claim context stable across languages
-- Generating user-side summaries in the preferred language
-- Supporting multilingual voice design or model routing through TrueFoundry
+- Interpreting vague operator requests.
+- Follow-up question generation.
+- Optional multilingual support update.
+- Routing language-aware summaries through the same incident context.
+
+Most visible moment:
+
+- CommandOS asks the right drilldown question instead of dumping a static report.
+
+### AWS
+
+Role: deployment and audit/event store.
+
+Hosts or stores:
+
+- Frontend.
+- Agent/API backend.
+- Incident event log.
+- Audit records.
+- Generated report packet.
+
+Most visible moment:
+
+- Final report and audit timeline are saved as an incident packet.
+
+## Event Model
+
+The current event envelope can be reused for speed:
+
+```json
+{
+  "type": "event.type",
+  "tenant_id": "atlaspay",
+  "user_id": "ayush_demo",
+  "case_id": "sev1_tx_payments_2026_06_07",
+  "timestamp": "2026-06-07T00:00:00Z",
+  "payload": {}
+}
+```
+
+For the hackathon, the existing event types can be repurposed:
+
+| Current Event | CommandOS Meaning |
+|---|---|
+| `call.started` | CommandOS voice session started |
+| `call.agent_joined` | Incident agent joined |
+| `call.audio_ready` | Orb is listening |
+| `user.intent` | Operator command |
+| `user.choice` | Operator drilldown choice |
+| `agent.utterance` | CommandOS conversational response |
+| `memory.recalled` | Prior incident retrieved |
+| `knowledge.retrieved` | Runbook/policy retrieved |
+| `guardrail.checked` | Risky action checked or blocked |
+| `voice.spoken` | Spoken CommandOS status |
+| `memory.written` | Incident learning or approval note stored |
+| `outcome.created` | Incident dashboard/report created |
+| `audit.saved` | Incident packet saved |
+
+Recommended future event names:
+
+- `incident.started`
+- `query.scoped`
+- `map.hotspot_detected`
+- `topology.built`
+- `failure.localized`
+- `similar_incident.recalled`
+- `mitigation.proposed`
+- `approval.requested`
+- `dashboard.generated`
+- `report.created`
+
+For this hackathon, do not block on renaming the whole contract if that risks
+breaking the demo. Map the new semantics onto the existing event envelope and
+rename visible UI copy first.
+
+## Agent Tool Surface
+
+CommandOS should expose a small tool surface:
+
+1. `inspect_payment_failures`
+   - Scopes the query by time window, customer segment, geography, and payment
+     path.
+
+2. `build_spatial_failure_model`
+   - Produces the map, city hotspots, topology nodes, and animated failure
+     paths.
+
+3. `recall_similar_incidents`
+   - Retrieves prior incidents with similarity, outcome, failed actions, and
+     successful mitigations.
+
+4. `retrieve_runbook_policy`
+   - Pulls runbook and approval rules from parsed operational docs.
+
+5. `propose_mitigation`
+   - Builds the action sequence and proposed architecture change.
+
+6. `check_action_guardrail`
+   - Blocks risky actions until required checks and approvals exist.
+
+7. `prepare_approval_request`
+   - Creates an approval card with risks, preconditions, and approver.
+
+8. `generate_incident_dashboard`
+   - Converts the 3D investigation into a clean dashboard/report.
+
+9. `speak_status`
+   - Produces low-latency spoken updates.
+
+## MVP Scope
+
+### In Scope
+
+- Single fictional fintech incident.
+- Voice-orb opening state.
+- Conversational investigation flow.
+- 3D Texas failure map.
+- 3D payment topology.
+- Similar-incident memory recall.
+- Runbook/approval policy retrieval.
+- Recommended mitigation view.
+- Blocked restart guardrail.
+- Approval request card.
+- Final dashboard/report generation.
+- Sponsor trace with honest live/stub status.
+
+### Out Of Scope
+
+- Real production payment telemetry.
+- Real infrastructure restart.
+- Real customer data.
+- Real cloud-console actions.
+- Full incident-management replacement.
+- PagerDuty/Slack/Jira/Datadog integrations.
+- Multi-incident enterprise admin.
+- Full production compliance posture.
+
+## Implementation Path
+
+Use the existing repo as the base.
+
+1. Keep the package stack.
+   - Next.js for web.
+   - Three.js for 3D scenes.
+   - LiveKit for voice/session/data channel.
+   - Python agent and brain packages for runtime orchestration.
+   - Existing contract package for typed event passing.
+
+2. Update product story first.
+   - `spec.md` becomes CommandOS.
+   - Visible UI copy should stop saying VoiceBridge for the demo.
+   - Console and portal should be reframed as CommandOS surfaces.
+
+3. Build the scripted incident flow.
+   - Use deterministic demo data.
+   - Emit the same event envelope the current UI already understands.
+   - Preserve pauses where the operator chooses drilldowns.
+
+4. Build the 3D experience.
+   - Orb.
+   - Map.
+   - City hotspots.
+   - Payment topology.
+   - Prior-incident overlay.
+   - Mitigation morph.
+   - Approval card.
+   - Dashboard fold.
+
+5. Keep sponsor observability.
+   - Show which sponsor path produced memory, docs, guardrail, voice, and audit.
+   - Label local fallbacks clearly.
+
+## Runtime Flow
+
+```text
+Operator voice
+  |
+  v
+LiveKit room/session
+  |
+  v
+CommandOS agent
+  |
+  +--> Qwen/reasoning path
+  |       - interpret vague query
+  |       - ask follow-up questions
+  |
+  +--> MOSS memory path
+  |       - recall similar incidents
+  |       - store incident learning
+  |
+  +--> UnSiloed docs path
+  |       - retrieve runbook and approval policy
+  |
+  +--> TrueFoundry guardrail path
+  |       - block unsafe restart
+  |       - require checks and approval
+  |
+  +--> MiniMax voice path
+  |       - spoken status updates
+  |
+  +--> AWS/audit path
+          - save event log and incident packet
+```
+
+The web UI listens to the same event stream and renders the current 3D state.
+
+## Final Dashboard Contents
+
+The generated dashboard/report should include:
+
+- Incident title and severity.
+- Time window and segment.
+- Failure map.
+- City breakdown.
+- Payment topology.
+- Root-cause hypothesis.
+- Prior incident match.
+- Recommended mitigation.
+- Blocked unsafe action.
+- Approval request.
+- Customer update draft.
+- Postmortem skeleton.
+- Sponsor/runtime trace.
+- Audit/event timeline.
+
+## Success Criteria
+
+The hackathon demo succeeds if a judge understands these points in under three
+minutes:
+
+1. The user talks to the system conversationally, not through dashboard filters.
+2. CommandOS asks clarifying questions before deciding what to show.
+3. A vague payments question becomes a 3D operational model.
+4. The system identifies the likely failure point.
+5. MOSS memory recalls a similar incident and changes the recommendation.
+6. The mitigation is shown visually as an architecture change.
+7. A risky restart command is blocked until checks and approval.
+8. The 3D investigation becomes a usable dashboard/report.
+9. Every sponsor has a visible role in the runtime trace.
 
 ## Risks
 
-1. Too close to consumer AI calling assistants
-   - Mitigation: pitch institutional accessibility infrastructure, not personal task automation.
+1. Too much visual polish, not enough product truth
+   - Mitigation: include exact metrics, failure point, memory recall, and blocked
+     action.
 
-2. Live outbound call failure during demo
-   - Mitigation: use controlled insurer line.
+2. Too much dashboard, not enough conversation
+   - Mitigation: CommandOS must ask follow-up questions and wait for operator
+     choices.
 
-3. Financial, legal, or coverage advice risk
-   - Mitigation: restrict to communication support, representative clarification, and workflow completion.
+3. Too generic a fix
+   - Mitigation: avoid "just restart and add a load balancer" as the first
+     answer. The credible answer is queue-depth check, traffic shift,
+     controlled restart, then regional load balancing.
 
-4. Privacy concern
-   - Mitigation: make consent gates and audit logs visible in the demo.
+4. Sponsor usage feels decorative
+   - Mitigation: show the sponsor trace for each major event.
 
-5. Procurement complexity
-   - Mitigation: start with insurance administrators, brokerages, and regional insurers before large national carriers.
+5. Contract rename slows the build
+   - Mitigation: keep the existing event envelope and rename visible copy first.
 
-6. MOSS use feels generic
-   - Mitigation: show memory changing the live response, not just storing summaries.
+6. Live voice path fails during judging
+   - Mitigation: keep a deterministic click/keyboard fallback that emits the
+     same events and label it as demo fallback.
 
 ## Roadmap
 
 ### Hackathon MVP
 
-- Controlled insurer call
-- User console
-- Consent gate
-- MOSS-backed communication profile
-- Returning-caller memory
-- Mid-call language switch
-- Correction learning
-- Outcome card
-- Insurer portal shell
+- Scripted voice-orb demo.
+- 3D incident map.
+- 3D payment topology.
+- Prior incident memory recall.
+- Runbook/approval retrieval.
+- Risky action block.
+- Final dashboard/report.
 
 ### Pilot Product
 
-- Real phone integration
-- Organization tenant setup
-- Staff dashboard
-- Call templates for claims, benefits, disputes, billing, and document follow-up
-- User profile portability
-- Human escalation
-- Audit export
+- Integrations with incident tools.
+- Real telemetry connectors.
+- Slack/Teams command-room bridge.
+- PagerDuty/Opsgenie alert ingestion.
+- Datadog/New Relic/Grafana topology import.
+- Jira/Linear follow-up ticket creation.
+- Approval workflows tied to real on-call users.
 
 ### Enterprise Product
 
-- CRM and claims-system integrations
-- Insurance core-system and CRM integrations
-- Banking and fintech support integrations
-- Multilingual voice support
-- Caregiver permission management
-- Compliance reports
-- Cross-organization communication profile portability
-- Admin analytics
-- Business-side accessibility operations dashboard
+- Multi-team incident memory.
+- Regulated-action policy engine.
+- Architecture-aware simulation.
+- Historical incident learning.
+- Audit exports.
+- Role-based approval paths.
+- Postmortem automation.
+- Customer communication workflow.
 
 ## Open Questions
 
-1. Should the first buyer be property and casualty insurers, health insurers, or benefits administrators?
-2. Should user profiles be institution-bound first, or portable from day one?
-3. What is the minimum safe consent model for the first pilot?
-4. Which sensitive fields must always require explicit confirmation?
-5. Should VoiceBridge disclose itself at the start of every call in production?
-6. Which workflows are safe enough for autonomous completion without staff escalation?
-7. How should caregiver permissions be verified?
-8. What is the right pricing model: per organization, per assisted call, or per covered user?
-9. Which languages should be supported in the first demo and first pilot?
-10. How much prior-call context should VoiceBridge reveal before asking the user for confirmation?
-
-## Success Criteria
-
-The MVP succeeds if a judge can understand and see all of this in under two minutes:
-
-1. An insurer deploys VoiceBridge to make claim and member-service calls accessible.
-2. A user enters intent without needing to speak.
-3. VoiceBridge retrieves communication preferences and prior claim context from memory.
-4. VoiceBridge recognizes the same person calling again and avoids forcing them to restart.
-5. VoiceBridge pauses before sharing sensitive information.
-6. The user approves the disclosure.
-7. The user switches language mid-call and VoiceBridge keeps the same claim context.
-8. VoiceBridge completes the claim follow-up workflow.
-9. The user corrects style or pacing.
-10. MOSS updates the communication profile.
-11. The business receives a clear, auditable outcome.
+1. Should the hackathon surface keep `/console` and `/portal`, or introduce a
+   single `/command` route for the 3D demo?
+2. Should the voice path be fully live for judging, or should the deterministic
+   fallback be the primary demo driver?
+3. How much of the final dashboard should be real generated text versus scripted
+   event payload?
+4. Should the 3D map be a stylized Texas model or an abstract regional incident
+   grid?
+5. Should Qwen be visible through multilingual support, conversational
+   reasoning, or both?
+6. Should the self-improving harness write a new MOSS memory at the end of the
+   demo?
+7. Should the sponsor trace stay in the final dashboard, or appear as a side
+   rail during the 3D investigation?
 
 ## Final Framing
 
-VoiceBridge is the business-deployed conversational access layer for high-stakes insurance and financial-service phone workflows.
+CommandOS is the voice-first 3D operating layer for live business incidents.
 
-It lets businesses serve customers who cannot reliably complete phone calls alone by combining live voice, returning-caller memory, language switching, user-owned communication profiles, consent gates, correction learning, and auditable outcomes at scale.
+It turns a vague operational question into a conversational investigation, a
+spatial failure model, a memory-backed recommendation, a guarded approval path,
+and a clean incident dashboard.
