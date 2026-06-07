@@ -8,13 +8,26 @@
     "node": ">=20",
     "pnpm": ">=10.15.0"
   },
+  "pnpm": {
+    "overrides": {
+      "postcss": "8.5.15"
+    }
+  },
   "scripts": {
     "dev": "pnpm --filter @voicebridge/web dev",
     "build": "pnpm --filter @voicebridge/contracts build && pnpm --filter @voicebridge/web build",
     "lint": "pnpm --filter @voicebridge/web lint",
     "typecheck": "pnpm -r --if-present typecheck",
+    "brain:test": "cd brain && uv run pytest",
+    "brain:lint": "cd brain && uv run ruff check .",
+    "agent:smoke": "cd agent && uv run python -m voicebridge_agent.agent smoke",
+    "agent:live-check": "cd agent && uv run python -m voicebridge_agent.live_readiness",
+    "agent:live-check:strict": "cd agent && uv run python -m voicebridge_agent.live_readiness --strict",
     "agent:dev": "cd agent && uv run python -m voicebridge_agent.agent dev",
+    "agent:start": "cd agent && uv run python -m voicebridge_agent.agent start",
     "agent:console": "cd agent && uv run python -m voicebridge_agent.agent console",
+    "agent:sip:check": "cd agent && uv run python -m voicebridge_agent.transport.sip check",
+    "agent:sip:call": "cd agent && uv run python -m voicebridge_agent.transport.sip call",
     "agent:setup": "cd agent && uv sync && uv run --module livekit.agents download-files"
   }
 }

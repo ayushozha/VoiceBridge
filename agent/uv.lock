@@ -272,6 +272,34 @@ wheels = [
 ]
 
 [[package]]
+name = "boto3"
+version = "1.43.24"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "botocore" },
+    { name = "jmespath" },
+    { name = "s3transfer" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f3/8f/94dfa39ec618ecb2fe5b5b79428c95100e3ae3c1aa5083c283dd3cfb5ecd/boto3-1.43.24.tar.gz", hash = "sha256:ba5afa266bf7265e0c1a454fcfd48bffe5939cb16ed223bebc669c3dc8ee0bc8", size = 113154, upload-time = "2026-06-05T19:30:01.635Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/59/b7/e66c9b37b96153aa371fe48d24194151293f6577dd3eaa1fc146c281456d/boto3-1.43.24-py3-none-any.whl", hash = "sha256:b18ef745274ef548a9660d733d985d4a971b16bd8a6af88165ea9d0e40913b86", size = 140536, upload-time = "2026-06-05T19:29:58.968Z" },
+]
+
+[[package]]
+name = "botocore"
+version = "1.43.24"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jmespath" },
+    { name = "python-dateutil" },
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/78/67/55d0611b341482bc9649d16df765f849a1862184ac3709356decf632279f/botocore-1.43.24.tar.gz", hash = "sha256:0c02f2b40e99419d496ece0ea2dcdedb5c45998c16fd1674276c7dbb30767a16", size = 15471690, upload-time = "2026-06-05T19:29:33.731Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c9/b7/360b5afe74c4d7cff871ea6e8f335e2e11de2945c9deb1eea6438f49faa2/botocore-1.43.24-py3-none-any.whl", hash = "sha256:42903b4bfafd8f15a735ed940473f28e4ba21b2ea67a9b9aaa11dfa7fcb19fd5", size = 15155182, upload-time = "2026-06-05T19:29:29.457Z" },
+]
+
+[[package]]
 name = "certifi"
 version = "2026.5.20"
 source = { registry = "https://pypi.org/simple" }
@@ -520,7 +548,7 @@ name = "exceptiongroup"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b62f7eb014e352e5d06856655206165d775e675a02c9/exceptiongroup-1.3.1.tar.gz", hash = "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219", size = 30371, upload-time = "2025-11-21T23:01:54.787Z" }
 wheels = [
@@ -858,6 +886,33 @@ wheels = [
 ]
 
 [[package]]
+name = "inferedge-moss-core"
+version = "0.14.0"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/65/3b/87e045972663606fc4b131e9bf25d729386cb73808db37fa252c640daa93/inferedge_moss_core-0.14.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:f3f0fe68518f0c1520d05fcb953461de520e3b5d967669a9293d58d381478c64", size = 3787210, upload-time = "2026-05-28T01:55:31.56Z" },
+    { url = "https://files.pythonhosted.org/packages/1d/75/da7d7a1bc9a16548079933d3044d38273387c179e94629cad1e8412edd4c/inferedge_moss_core-0.14.0-cp310-cp310-manylinux_2_38_x86_64.whl", hash = "sha256:0b569f7211c667146a1f48baae7adb926b6ab31b0cfdc148bb7c9e9e2bc0b159", size = 4767346, upload-time = "2026-05-28T16:13:18.627Z" },
+    { url = "https://files.pythonhosted.org/packages/89/2e/1b9d25a20c87250fad0c6ddd6d6cf24875d6559a38505ec530b4c7d26c16/inferedge_moss_core-0.14.0-cp310-cp310-manylinux_2_39_aarch64.whl", hash = "sha256:e0aac6625587a26bfb8337cf295e8706ea778c403b317d9783a5c2f245adf4dc", size = 4664612, upload-time = "2026-05-28T16:13:40.998Z" },
+    { url = "https://files.pythonhosted.org/packages/40/20/255ad31fabd8addc6dfc0799af63505c520c7f0c085309b67b8e6b673733/inferedge_moss_core-0.14.0-cp310-cp310-win_amd64.whl", hash = "sha256:fe0c434a2274b97d5b6e99c99e4251b9978d241802927c84ca017d4326e70811", size = 5161656, upload-time = "2026-05-28T16:17:17.591Z" },
+    { url = "https://files.pythonhosted.org/packages/11/9d/5dea3b3dbdd5d159aacc33ba6f32b35f046a1f099f8700b78b2176aa1021/inferedge_moss_core-0.14.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:333ff914c03e616845a42677fbefe2bf9fd427d77c045acdce4365aa1ee37d3e", size = 3787075, upload-time = "2026-05-28T01:55:51.761Z" },
+    { url = "https://files.pythonhosted.org/packages/b4/02/61447d6476b0638d466c64a41af7e5ac2f26e6fa16c97665b28afd039829/inferedge_moss_core-0.14.0-cp311-cp311-manylinux_2_38_x86_64.whl", hash = "sha256:bed95f9620ef06abb310ec98f7e691ba7dfaa00071c935f2284301bbb1c8b1c4", size = 4767092, upload-time = "2026-05-28T16:13:50.125Z" },
+    { url = "https://files.pythonhosted.org/packages/dc/58/6d27fe6bfc624a1f59e098c84109403118f154f5889b292e0c286236a8b7/inferedge_moss_core-0.14.0-cp311-cp311-manylinux_2_39_aarch64.whl", hash = "sha256:d6cb27b927f1be71f15a9ec60156894f149e72da1b1448ae9c1c6cdfc2e4626b", size = 4666016, upload-time = "2026-05-28T16:13:17.277Z" },
+    { url = "https://files.pythonhosted.org/packages/8e/d5/b7b77127edd863408d4eb945919ac7735f51b1b149568e171f1d2f277c40/inferedge_moss_core-0.14.0-cp311-cp311-win_amd64.whl", hash = "sha256:e7c8b8b92a5f430d322090eb753efd4179d5c1b96d3d8cbcdd438eb5fb444ba3", size = 5163610, upload-time = "2026-05-28T16:17:05.514Z" },
+    { url = "https://files.pythonhosted.org/packages/82/d2/334e4f8816d8496e55de0ec440416b52886b170d4300cae569258362d006/inferedge_moss_core-0.14.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:5039ff8f2fb010c200a8e186f524b32ab4cd8d2dd0fabb642c4742c30a3138a3", size = 3786216, upload-time = "2026-05-28T01:55:07.62Z" },
+    { url = "https://files.pythonhosted.org/packages/a8/54/ae65cb0822e90cef84d58c846d8879ee1af9823e6bb8e5e4e17fe651bd9a/inferedge_moss_core-0.14.0-cp312-cp312-manylinux_2_38_x86_64.whl", hash = "sha256:103bd0cd7439cbaadb859208cd1fc0d375618237eaa8c9793d0c1ab8eb3bdc49", size = 4761581, upload-time = "2026-05-28T16:13:09.972Z" },
+    { url = "https://files.pythonhosted.org/packages/52/fd/ea549746ee6de0462dd48dc577f116133a7944d6b9a72064bf2f0dc6f2ea/inferedge_moss_core-0.14.0-cp312-cp312-manylinux_2_39_aarch64.whl", hash = "sha256:ee3074a70ddcdc2281acd1ef622abeb9009fecf099409c68d65b73c815a21d03", size = 4660400, upload-time = "2026-05-28T16:13:40.356Z" },
+    { url = "https://files.pythonhosted.org/packages/cd/74/876df0ed345524530f458e1d1b20700dd7053c1be1839ebaafae6ac09696/inferedge_moss_core-0.14.0-cp312-cp312-win_amd64.whl", hash = "sha256:8f40013cded9d64936a13ff429a58bef2895693185d249b9392a678021b06a70", size = 5158450, upload-time = "2026-05-28T16:16:15.325Z" },
+    { url = "https://files.pythonhosted.org/packages/36/30/08089e130d0a308c6ea4853996cddc001019664e2b50bd5a85878aca205e/inferedge_moss_core-0.14.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:7d382dee77c04076d7f2836b97d2624d09ddfc00ea8df1c8cb09c5747f5eb705", size = 3786472, upload-time = "2026-05-28T01:55:37.344Z" },
+    { url = "https://files.pythonhosted.org/packages/1d/ba/c86b1d033bf68c19ecf0e6dcd63c8f37586cd6da9bdab2ceb34d05e9f68a/inferedge_moss_core-0.14.0-cp313-cp313-manylinux_2_38_x86_64.whl", hash = "sha256:a14175b1011481382787cb52d9a9612f3a933f5b41f5e7d777ba4bdd9e5d5ec2", size = 4761581, upload-time = "2026-05-28T16:13:27.136Z" },
+    { url = "https://files.pythonhosted.org/packages/78/ef/465c6f3c0436b9083588bb7804e22598a57a766f51289ce5a99921f13c00/inferedge_moss_core-0.14.0-cp313-cp313-manylinux_2_39_aarch64.whl", hash = "sha256:336c5fb22117803b30edf348eccdbbe27f14abebedd529320bbd2f3c7e497522", size = 4660653, upload-time = "2026-05-28T16:12:47.745Z" },
+    { url = "https://files.pythonhosted.org/packages/9d/73/2496025e249d6b5cd217722f8ef15dfc6db1fb5db7088e17eacaa7243ac2/inferedge_moss_core-0.14.0-cp313-cp313-win_amd64.whl", hash = "sha256:5d1db10d9957db0fcf8b1b8a57499293d5eb711f1c7c5ccf05c7708d4b85e22f", size = 5159320, upload-time = "2026-05-28T16:17:28.372Z" },
+    { url = "https://files.pythonhosted.org/packages/85/34/a331b71ca1fe3d86f6a1249c54c73ebf76c78e3a325df7c2d6fa15e1983f/inferedge_moss_core-0.14.0-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:20a6237ea8ff0736062b5cc6c70bcabb8afe92f0d528c8361284db138bc8994a", size = 3775266, upload-time = "2026-05-28T01:55:09.331Z" },
+    { url = "https://files.pythonhosted.org/packages/b3/63/b255c5fbf08795abc52e82b61011e00e67f5dd38b3bbd4bded37b3c1a541/inferedge_moss_core-0.14.0-cp314-cp314-manylinux_2_38_x86_64.whl", hash = "sha256:e1d4293c9e02612a794e5535e8c5fb1ddb2875c258c71926b94ad49c03bb0ff6", size = 4747649, upload-time = "2026-05-28T16:13:41.473Z" },
+    { url = "https://files.pythonhosted.org/packages/64/38/43b272b84b99ba92a128c0667af0f6aa05df79a5927751c056d03cd0686e/inferedge_moss_core-0.14.0-cp314-cp314-manylinux_2_39_aarch64.whl", hash = "sha256:852e419c4dcd854552a75f18b912a2c663e076379958213d1ee3348a10551111", size = 4653333, upload-time = "2026-05-28T16:13:22.99Z" },
+    { url = "https://files.pythonhosted.org/packages/79/fd/9ea509aaeeda80f5c50c447f424e503704bb260a994cfe7f9e3e341e7d96/inferedge_moss_core-0.14.0-cp314-cp314-win_amd64.whl", hash = "sha256:ae42dd5d41fed0923c80eb763a014ac949c09810afa383f850f05801e67b7b15", size = 5143562, upload-time = "2026-05-28T16:16:26.985Z" },
+]
+
+[[package]]
 name = "iniconfig"
 version = "2.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -979,6 +1034,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/e7/95/a06692b29e77473f286e1ec1f426d3ca44d7b5843be8ad21d7a5f3fcdcc0/jiter-0.15.0-graalpy312-graalpy250_312_native-macosx_11_0_arm64.whl", hash = "sha256:b6c0ffae686c39bf3737be60793783267628783ea42545632c10b291105aee45", size = 305128, upload-time = "2026-05-19T10:09:43.657Z" },
     { url = "https://files.pythonhosted.org/packages/23/85/7270d7ad41d6061a25b950c6bf91d638bd9aacb113200a8c8d57a055fd67/jiter-0.15.0-graalpy312-graalpy250_312_native-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:1d54fb5b31dea401a41af3f8a7d2512e9b6a6a005491e6166c7e4ffab9639a9c", size = 340459, upload-time = "2026-05-19T10:09:45.452Z" },
     { url = "https://files.pythonhosted.org/packages/c8/8d/302cb2057b7513327b4d575cff6b1d066ee6431a5357fc3f8867cd684406/jiter-0.15.0-graalpy312-graalpy250_312_native-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:54d5d6090cdc1b7c9e780dfb04949a990adb1e301a2fc0bbcee7de4638d33f9a", size = 344469, upload-time = "2026-05-19T10:09:46.864Z" },
+]
+
+[[package]]
+name = "jmespath"
+version = "1.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d3/59/322338183ecda247fb5d1763a6cbe46eff7222eaeebafd9fa65d4bf5cb11/jmespath-1.1.0.tar.gz", hash = "sha256:472c87d80f36026ae83c6ddd0f1d05d4e510134ed462851fd5f754c8c3cbb88d", size = 27377, upload-time = "2026-01-22T16:35:26.279Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/14/2f/967ba146e6d58cf6a652da73885f52fc68001525b4197effc174321d70b4/jmespath-1.1.0-py3-none-any.whl", hash = "sha256:a5663118de4908c91729bea0acadca56526eb2698e83de10cd116ae0f4e97c64", size = 20419, upload-time = "2026-01-22T16:35:24.919Z" },
 ]
 
 [[package]]
@@ -1289,6 +1353,20 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/d6/54/cfe61301667036ec958cb99bd3efefba235e65cdeb9c84d24a8293ba1d90/mdurl-0.1.2.tar.gz", hash = "sha256:bb413d29f5eea38f31dd4754dd7377d4465116fb207585f97bf925588687c1ba", size = 8729, upload-time = "2022-08-14T12:40:10.846Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b3/38/89ba8ad64ae25be8de66a6d463314cf1eb366222074cfda9ee839c56a4b4/mdurl-0.1.2-py3-none-any.whl", hash = "sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8", size = 9979, upload-time = "2022-08-14T12:40:09.779Z" },
+]
+
+[[package]]
+name = "moss"
+version = "1.4.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpx" },
+    { name = "inferedge-moss-core" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b8/52/a0307bda8301907ab3d16fd1888fb47f7aa7d765340a4a30b1fc9dcf4747/moss-1.4.0.tar.gz", hash = "sha256:9487f26779dbac15304c8a4d1fa50541b37f9b1ba2bdcd87ba8e0648a23e21b6", size = 46828, upload-time = "2026-06-02T23:21:04.6Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ef/a1/f87653b40ea91fa127acb0806f2dc4d8b2aa23d245db1269229a0a4c6fb5/moss-1.4.0-py3-none-any.whl", hash = "sha256:85b21e49e2e5e84c287152756181750b56a0e1f1044e5525d15f9fc5690f1a48", size = 17172, upload-time = "2026-06-02T23:21:03.749Z" },
 ]
 
 [[package]]
@@ -2304,6 +2382,18 @@ wheels = [
 ]
 
 [[package]]
+name = "python-dateutil"
+version = "2.9.0.post0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "six" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/66/c0/0c8b6ad9f17a802ee498c46e004a0eb49bc148f2fd230864601a86dcf6db/python-dateutil-2.9.0.post0.tar.gz", hash = "sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3", size = 342432, upload-time = "2024-03-01T18:36:20.211Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ec/57/56b9bcc3c9c6a792fcbaf139543cee77261f3651ca9da0c93f5c1221264b/python_dateutil-2.9.0.post0-py2.py3-none-any.whl", hash = "sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427", size = 229892, upload-time = "2024-03-01T18:36:18.57Z" },
+]
+
+[[package]]
 name = "python-dotenv"
 version = "1.2.2"
 source = { registry = "https://pypi.org/simple" }
@@ -2551,6 +2641,18 @@ wheels = [
 ]
 
 [[package]]
+name = "s3transfer"
+version = "0.18.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "botocore" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e0/1f/12417f7f493fc45e1f9fd5d4a9b6c125cf8d2cf3f8ddbdfab3e76406e9d6/s3transfer-0.18.0.tar.gz", hash = "sha256:3760b8b7ec1315da54048b2d626276732bee4300d054d492d4e1d43e20d4ecbd", size = 160560, upload-time = "2026-05-28T19:39:09.124Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2b/58/a58fc997655386daa2e25784e30c288aa3e3819e401f77029ee4899fb55a/s3transfer-0.18.0-py3-none-any.whl", hash = "sha256:239c13b09e65ad0346e1be7348b8a202dcad44ac7ea7c6eb858fc881dce739b6", size = 88572, upload-time = "2026-05-28T19:39:07.999Z" },
+]
+
+[[package]]
 name = "safetensors"
 version = "0.7.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2583,6 +2685,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/58/15/8b3609fd3830ef7b27b655beb4b4e9c62313a4e8da8c676e142cc210d58e/shellingham-1.5.4.tar.gz", hash = "sha256:8dbca0739d487e5bd35ab3ca4b36e11c4078f3a234bfce294b0a0291363404de", size = 10310, upload-time = "2023-10-24T04:13:40.426Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl", hash = "sha256:7ecfff8f2fd72616f7481040475a65b2bf8af90a56c89140852d1120324e8686", size = 9755, upload-time = "2023-10-24T04:13:38.866Z" },
+]
+
+[[package]]
+name = "six"
+version = "1.17.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/94/e7/b2c673351809dca68a0e064b6af791aa332cf192da575fd474ed7d6f16a2/six-1.17.0.tar.gz", hash = "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81", size = 34031, upload-time = "2024-12-04T17:35:28.174Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274", size = 11050, upload-time = "2024-12-04T17:35:26.475Z" },
 ]
 
 [[package]]
@@ -2799,12 +2910,14 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
+    { name = "boto3" },
     { name = "livekit-agents", extra = ["codecs"] },
     { name = "livekit-plugins-elevenlabs" },
     { name = "livekit-plugins-openai" },
     { name = "livekit-plugins-silero" },
     { name = "livekit-plugins-turn-detector" },
     { name = "python-dotenv" },
+    { name = "voicebridge-brain" },
     { name = "voicebridge-contract" },
 ]
 
@@ -2818,6 +2931,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.14.0" },
+    { name = "boto3", specifier = ">=1.43.24" },
     { name = "livekit-agents", extras = ["codecs"], specifier = "==1.5.17" },
     { name = "livekit-plugins-elevenlabs", specifier = "==1.5.17" },
     { name = "livekit-plugins-openai", specifier = "==1.5.17" },
@@ -2826,6 +2940,25 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.25.0" },
     { name = "python-dotenv", specifier = ">=1.2.2" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.9.0" },
+    { name = "voicebridge-brain", editable = "../brain" },
+    { name = "voicebridge-contract", editable = "../contracts/python" },
+]
+provides-extras = ["dev"]
+
+[[package]]
+name = "voicebridge-brain"
+version = "0.1.0"
+source = { editable = "../brain" }
+dependencies = [
+    { name = "moss" },
+    { name = "voicebridge-contract" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "moss", specifier = ">=1.4.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.9.0" },
     { name = "voicebridge-contract", editable = "../contracts/python" },
 ]

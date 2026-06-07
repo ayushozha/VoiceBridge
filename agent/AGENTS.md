@@ -12,10 +12,22 @@ agent as tool calls / events.
 ```bash
 # From repo root:
 pnpm agent:setup        # uv sync + download VAD/turn-detector model files
-pnpm agent:dev          # uv run python -m voicebridge_agent.agent dev
+pnpm agent:start        # uv run python -m voicebridge_agent.agent start  (use for the demo)
+pnpm agent:dev          # uv run python -m voicebridge_agent.agent dev   (auto-reload)
 # or talk in the terminal:
 pnpm agent:console
 ```
+
+> **Windows gotcha:** `agent:dev` runs the LiveKit auto-reload watcher, whose
+> file-watch IPC pipe is fragile on Windows and crash-loops the worker with
+> `DuplexClosed` / `IncompleteReadError: 0 bytes read` (exit `4294967295`). For
+> the live demo use **`pnpm agent:start`** (no watcher) — it stays up. Reserve
+> `agent:dev` for active code editing on platforms where the watcher behaves.
+
+> **Agent name:** the worker registers under `COMMANDOS_AGENT_NAME` (`.env`,
+> default `commandos_live`) and the browser dispatches that exact name in
+> `web/src/app/api/token/route.ts`. They MUST match or the agent never joins the
+> room. Keep the single `.env` value as the source of truth for both sides.
 
 ## Stack (latest as of 2026-06-07)
 

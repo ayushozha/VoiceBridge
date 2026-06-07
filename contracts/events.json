@@ -4,8 +4,21 @@
   "transport": {
     "channel": "livekit-data",
     "topic": "voicebridge.events",
+    "commandos_topic": "commandos.events",
     "encoding": "utf-8-json",
-    "envelope": ["type", "tenant_id", "user_id", "case_id", "timestamp", "payload"]
+    "envelope": [
+      "type",
+      "tenant_id",
+      "user_id",
+      "case_id",
+      "timestamp",
+      "event_id",
+      "sequence",
+      "turn_id",
+      "correlation_id",
+      "mode",
+      "payload"
+    ]
   },
   "demo": {
     "tenant_id": "northstar_insurance",
@@ -16,12 +29,33 @@
     "claim_number": "H-48291",
     "languages": ["en", "es"]
   },
+  "commandos_demo": {
+    "tenant_id": "atlaspay",
+    "tenant_display_name": "AtlasPay",
+    "user_id": "ayush_demo",
+    "user_display_name": "Ayush",
+    "case_id": "sev1_tx_payments_2026_06_07",
+    "incident_title": "Texas premium payment failures"
+  },
   "event_types": [
     "call.started",
     "call.agent_joined",
     "call.audio_ready",
+    "incident.started",
+    "query.scoped",
+    "map.hotspots",
+    "topology.built",
+    "failure.localized",
+    "similar_incident.recalled",
+    "mitigation.proposed",
+    "approval.requested",
+    "dashboard.generated",
+    "report.created",
+    "scene.state",
+    "hud.component",
     "memory.recalled",
     "knowledge.retrieved",
+    "web.search.results",
     "consent.requested",
     "consent.approved",
     "consent.denied",
@@ -55,7 +89,15 @@
     "parse_business_document",
     "route_guarded_model_call",
     "detect_language_switch",
-    "speak_response"
+    "speak_response",
+    "inspect_payment_failures",
+    "build_spatial_failure_model",
+    "recall_similar_incidents",
+    "retrieve_runbook_policy",
+    "propose_mitigation",
+    "check_action_guardrail",
+    "prepare_approval_request",
+    "generate_incident_dashboard"
   ],
   "sensitive_fields": [
     "claim_number",

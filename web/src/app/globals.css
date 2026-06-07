@@ -2,38 +2,99 @@
 
 :root {
   /* Northstar Insurance demo palette */
-  --vb-bg: #0b1020;
-  --vb-surface: #131a2e;
-  --vb-surface-2: #1b2440;
-  --vb-border: #2a3658;
+  --vb-bg: #080e1d;
+  --vb-surface: #0f1729;
+  --vb-surface-2: #162038;
+  --vb-surface-3: #1e2d4d;
+  --vb-border: #243352;
+  --vb-border-subtle: #1a2640;
   --vb-text: #e8edf7;
-  --vb-text-muted: #9aa6c4;
+  --vb-text-muted: #8a9bbf;
   --vb-accent: #4f8cff;
-  --vb-accent-2: #38d9a9;
+  --vb-accent-dim: #3a6fd4;
+  --vb-accent-2: #34d9a5;
   --vb-warn: #ffb454;
   --vb-danger: #ff6b6b;
+  --vb-gradient-accent: linear-gradient(135deg, #4f8cff 0%, #34d9a5 100%);
 }
 
 @theme inline {
   --color-vb-bg: var(--vb-bg);
   --color-vb-surface: var(--vb-surface);
   --color-vb-surface-2: var(--vb-surface-2);
+  --color-vb-surface-3: var(--vb-surface-3);
   --color-vb-border: var(--vb-border);
+  --color-vb-border-subtle: var(--vb-border-subtle);
   --color-vb-text: var(--vb-text);
   --color-vb-muted: var(--vb-text-muted);
   --color-vb-accent: var(--vb-accent);
+  --color-vb-accent-dim: var(--vb-accent-dim);
   --color-vb-accent-2: var(--vb-accent-2);
   --color-vb-warn: var(--vb-warn);
   --color-vb-danger: var(--vb-danger);
+  --font-family-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
 html,
 body {
-  background: var(--vb-bg);
+  background: #01020a;
   color: var(--vb-text);
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 * {
   box-sizing: border-box;
 }
+
+/* Ambient page glow */
+body::before {
+  content: "";
+  position: fixed;
+  top: -20vh;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80vw;
+  height: 50vh;
+  background: radial-gradient(ellipse at 50% 0%, rgba(79, 140, 255, 0.07) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Thin elegant scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--vb-border); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--vb-text-muted); }
+
+/* Selection highlight */
+::selection { background: rgba(79, 140, 255, 0.3); color: var(--vb-text); }
+
+/* Gradient text utility */
+.text-gradient {
+  background: var(--vb-gradient-accent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Glow rings */
+.glow-accent  { box-shadow: 0 0 0 1px rgba(79, 140, 255, 0.3),  0 0 24px rgba(79, 140, 255, 0.12); }
+.glow-approve { box-shadow: 0 0 0 1px rgba(52, 217, 165, 0.3),  0 0 24px rgba(52, 217, 165, 0.12); }
+.glow-warn    { box-shadow: 0 0 0 1px rgba(255, 180, 84, 0.35), 0 0 24px rgba(255, 180, 84, 0.15); }
+
+/* Animations */
+@keyframes fade-up  { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fade-in  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pulse-ring {
+  0%   { box-shadow: 0 0 0 0   rgba(255, 180, 84, 0.5); }
+  70%  { box-shadow: 0 0 0 8px rgba(255, 180, 84, 0); }
+  100% { box-shadow: 0 0 0 0   rgba(255, 180, 84, 0); }
+}
+@keyframes live-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+.animate-fade-up    { animation: fade-up    0.35s ease both; }
+.animate-fade-in    { animation: fade-in    0.25s ease both; }
+.animate-pulse-ring { animation: pulse-ring 2s   ease-out infinite; }
+.animate-live       { animation: live-pulse 2s   ease-in-out infinite; }

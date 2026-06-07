@@ -28,14 +28,23 @@ export const serverEnv = {
 
 /** Public-safe view of which sponsor integrations are configured. */
 export function integrationModes() {
+  const enabled = (name: string) => val(name) === "1" || val(name)?.toLowerCase() === "true";
+
   return {
     livekit: Boolean(val("LIVEKIT_URL") && val("LIVEKIT_API_KEY") && val("LIVEKIT_API_SECRET")),
-    moss: Boolean(val("MOSS_PROJECT_ID") && val("MOSS_PROJECT_KEY")),
-    unsiloed: Boolean(val("UNSILOED_API_KEY")),
-    truefoundry: Boolean(val("TRUEFOUNDRY_API_KEY") && val("TRUEFOUNDRY_GATEWAY_BASE_URL")),
-    qwen: Boolean(val("DASHSCOPE_API_KEY") && val("QWEN_BASE_URL")),
+    // These are intentionally gated by explicit runtime flags. Credentials can
+    // be present while the current demo still uses local sponsor-shaped
+    // adapters; showing "Live" must mean the backend actually calls that API.
+    moss: Boolean(enabled("VOICEBRIDGE_MOSS_LIVE") && val("MOSS_PROJECT_ID") && val("MOSS_PROJECT_KEY")),
+    unsiloed: Boolean(enabled("VOICEBRIDGE_UNSILOED_LIVE") && val("UNSILOED_API_KEY")),
+    truefoundry: Boolean(
+      enabled("VOICEBRIDGE_TRUEFOUNDRY_LIVE") &&
+        val("TRUEFOUNDRY_API_KEY") &&
+        val("TRUEFOUNDRY_GATEWAY_BASE_URL"),
+    ),
+    qwen: Boolean(enabled("VOICEBRIDGE_QWEN_LIVE") && val("DASHSCOPE_API_KEY") && val("QWEN_BASE_URL")),
     minimax: Boolean(val("MINIMAX_API_KEY")),
     elevenlabs: Boolean(val("ELEVENLABS_API_KEY") && val("ELEVENLABS_VOICE_ID")),
-    aws: Boolean(val("AWS_ACCESS_KEY_ID") && val("AWS_SECRET_ACCESS_KEY")),
+    aws: Boolean(enabled("VOICEBRIDGE_AWS_LIVE") && val("AWS_ACCESS_KEY_ID") && val("AWS_SECRET_ACCESS_KEY")),
   } as const;
 }

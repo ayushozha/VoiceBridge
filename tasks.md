@@ -1,519 +1,577 @@
-# VoiceBridge Parallel Build Tasks
+# VoiceBridge Remaining Work Plan
 
-Status: Draft
+Status: Active completion plan
 Date: 2026-06-07
-Goal: make the voice call work first.
+Goal: finish the spec by proving the live voice-call demo, not just the mock demo.
 
-## Non-Negotiable P0
+## Current Truth
 
-The first feature is a working low-latency voice call.
+The project is not complete against `spec.md` yet.
 
-Nothing else matters until this is true:
+Verified done:
 
-1. A user can start a call from the browser.
-2. The VoiceBridge agent joins the LiveKit room.
+- `pnpm build` passes.
+- `pnpm lint` passes.
+- `pnpm typecheck` passes.
+- `pnpm brain:test` passes with 29 tests.
+- `pnpm brain:lint` passes.
+- `cd agent; uv run pytest` passes with 20 tests.
+- `cd agent; uv run ruff check .` passes.
+- Controlled insurer participant connected to LiveKit and emitted scripted insurer events.
+- Web app is running locally on port 3000.
+- Git working tree was clean before this task update.
+
+Not yet verified:
+
+- Main `pnpm agent:dev` voice agent starts reliably with useful logs.
+- Browser user connects to the same LiveKit room as the agent.
+- Browser mic audio reaches the agent.
+- Agent speaks back in the browser with acceptable latency.
+- Brain events are emitted live over the LiveKit data channel.
+- Portal renders the live event stream rather than only mock replay.
+- The full Ayush / H-48291 demo works end to end three times in a row.
+
+## Finish Line
+
+The demo is complete only when all of these are true:
+
+1. User opens `/console` and starts the call.
+2. VoiceBridge agent joins the LiveKit room.
 3. Audio flows both directions.
-4. The agent hears the user or controlled insurer participant.
-5. The agent responds in a natural voice with acceptable latency.
-6. The call remains stable for the full 90-second demo path.
-7. The team has a fallback path if real outbound SIP is blocked.
+4. Agent gives a spoken response.
+5. Controlled insurer participant can join or simulated insurer events appear in the same live room.
+6. Agent recalls Ayush's H-48291 context.
+7. Claim number is blocked until consent is approved.
+8. User switches English to Spanish and the claim context is preserved.
+9. `/portal` shows the same live event stream, sponsor trace, consent log, and outcome.
+10. Demo runs three consecutive times without manual code changes.
 
-Acceptance target:
+## Owner Split
 
-- Browser-to-agent LiveKit call works locally.
-- Controlled insurer participant can be simulated.
-- First response starts within roughly 1.5 seconds after user turn end when using the fastest available voice path.
-- No hard dependency on a real insurer, real claim system, or real outbound phone call for the hackathon demo.
+Codex takes the backend, agent runtime, brain integration, sponsor adapters, and final verification because those are Python/event-contract/system-integration tasks.
 
-## Build Strategy
+Claude Code takes the browser UI, LiveKit front-end surfaces, portal trace, demo controls, and visual QA because those are the user-facing surfaces judges will see.
 
-Use progressive call realism:
+This keeps the split at exactly five tasks each:
 
-1. Browser-to-agent LiveKit call.
-2. Browser-to-agent plus controlled insurer simulator in the same app.
-3. LiveKit SIP outbound call only after the browser call is stable and SIP trunk credentials exist.
+- Codex: Agents 1, 3, 4, 5, 10
+- Claude Code: Agents 2, 6, 7, 8, 9
 
-This avoids betting the whole demo on SIP setup. The product should still support real calls, but the hackathon proof must work deterministically.
+## Agent 1: Live Agent Startup And Room Join
 
-## APIs And Credentials Needed
+Owner: Codex
 
-Already present in `.env`:
+Why Codex:
 
-- LiveKit URL/API credentials.
-- MOSS project credentials.
-- UnSiloed API key.
-- MiniMax API key.
-- ElevenLabs API key and voice ID.
-- Alibaba Cloud access key pair.
-- VoiceBridge demo tenant/user/case IDs.
+- This is the main backend blocker.
+- It requires Python LiveKit Agents debugging, process/log handling, and config validation.
 
-Still needed for full production-like path:
+Remaining work:
 
-- `LIVEKIT_SIP_OUTBOUND_TRUNK_ID`: required for real outbound phone calls through LiveKit SIP.
-- `DEMO_OUTBOUND_PHONE_NUMBER`: required if we place a real outbound call.
-- `TRUEFOUNDRY_API_KEY`: required for live TrueFoundry gateway use.
-- `TRUEFOUNDRY_GATEWAY_BASE_URL`: required for live TrueFoundry gateway use.
-- `TRUEFOUNDRY_GUARDRAIL_CONFIG_ID`: required for configured policy guardrails.
-- `DASHSCOPE_API_KEY`: likely required for Alibaba Model Studio / Qwen OpenAI-compatible API unless the Alibaba access key pair is converted to a DashScope API key in the console.
-- `MINIMAX_GROUP_ID`: may be required depending on MiniMax account/API endpoint.
-- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_S3_BUCKET`: required only for deployed hosting/audit artifacts, not local demo.
+- Make `pnpm agent:dev` start reliably.
+- Add startup logs that prove:
+  - config loaded
+  - LiveKit worker started
+  - room/job accepted
+  - agent session started
+  - `call.started`, `call.agent_joined`, and `call.audio_ready` were emitted
+- Remove or fix any silent startup/hang behavior.
+- Add a short smoke command that imports and validates the worker without joining a room.
+- Ensure `pnpm agent:dev` does not leave orphaned Python workers after failure.
 
-APIs to use:
+Acceptance:
 
-- LiveKit Agents and LiveKit rooms for the live call.
-- LiveKit SIP `CreateSIPParticipant` only after outbound trunk setup exists.
-- MOSS SDK/API for business knowledge retrieval and communication memory.
-- UnSiloed parse API for claim/policy document parsing.
-- TrueFoundry AI Gateway for model routing and guardrail checks.
-- MiniMax TTS for sponsor voice path if integration is available.
-- ElevenLabs TTS as a working low-latency fallback using the provided voice ID.
-- Qwen via Alibaba Model Studio / DashScope for multilingual reasoning and language switching.
-- AWS for deployment/audit persistence if time permits.
+- `pnpm agent:dev` produces clear startup output within 10 seconds.
+- When `/console` starts a call, the agent joins the same room.
+- No zombie `voicebridge_agent.agent dev` processes remain after stopping.
 
-## Shared Demo Contract
+Dependencies:
 
-Demo organization:
+- LiveKit credentials in `.env`.
+- Existing `agent/voicebridge_agent/agent.py`.
+- Existing `web/src/app/api/token/route.ts`.
 
-```text
-Northstar Insurance
+Blocked by:
+
+- LiveKit cloud auth or worker dispatch issue.
+- LiveKit Agents API mismatch.
+
+Validation:
+
+```powershell
+pnpm agent:dev
+Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*voicebridge_agent.agent dev*' }
 ```
 
-Demo user:
+## Agent 2: Browser Live Call Console
 
-```text
-Ayush
+Owner: Claude Code
+
+Why Claude:
+
+- This is the visible user-facing call surface.
+- It requires browser testing, UI state, mic permissions, and clear failure messaging.
+
+Remaining work:
+
+- Verify `/console` connects to LiveKit using `CallProvider`.
+- Confirm token fetch works from `/api/token?role=user`.
+- Show connection status, room name, identity, mic state, and agent-joined state.
+- Make mic permission failures obvious.
+- Add a "Reconnect" and "Disconnect" path.
+- Make mock replay clearly labeled as mock, not live.
+- Prevent mock events from being mistaken for a real sponsor trace.
+
+Acceptance:
+
+- User clicks one button and joins the room as `ayush_demo`.
+- UI shows live connection state.
+- UI shows whether mic is active.
+- If LiveKit connection fails, the user sees the exact error.
+
+Dependencies:
+
+- Agent 1 worker startup.
+- `web/src/components/CallProvider.tsx`.
+- `web/src/app/console/page.tsx`.
+
+Blocked by:
+
+- Token route failure.
+- Browser mic permission denial.
+
+Validation:
+
+```powershell
+pnpm dev
 ```
 
-Demo case:
+Then verify `/console` in browser.
 
-```text
-home_claim_H-48291
+## Agent 3: Brain To LiveKit Event Bridge
+
+Owner: Codex
+
+Why Codex:
+
+- The brain is implemented but not wired into the live agent.
+- This is event-contract and Python orchestration work.
+
+Remaining work:
+
+- Connect `voicebridge_brain.DemoOrchestrator` to the LiveKit agent runtime.
+- Publish orchestrator events over `voicebridge.events`.
+- Ensure live events use the same envelope as mocks.
+- Add a controlled text-mode trigger for the demo path.
+- Decide whether the first live pass is:
+  - fully voice-driven, or
+  - typed console event starts the deterministic brain flow
+- Ensure memory, guardrail, knowledge, language, outcome, and audit events appear live.
+
+Acceptance:
+
+- Starting the demo from `/console` causes live `memory.recalled`, `knowledge.retrieved`, `guardrail.checked`, `language.switched`, `memory.written`, `outcome.created`, and `audit.saved` events.
+- `/portal` sees those events without mock replay.
+- Event payloads pass `isVoiceBridgeEvent`.
+
+Dependencies:
+
+- Agent 1 room join.
+- Brain package under `brain/voicebridge_brain`.
+- Shared contract under `contracts/`.
+
+Blocked by:
+
+- No reliable data-channel publisher from the agent process.
+
+Validation:
+
+```powershell
+pnpm brain:test
+pnpm typecheck
 ```
 
-Demo flow:
+And a live room trace showing brain events.
 
-1. User starts call about claim H-48291.
-2. Agent recalls prior claim context.
-3. Insurer asks whether this is the same claim.
-4. User confirms.
-5. Insurer asks for claim number.
-6. VoiceBridge pauses for consent.
-7. User approves.
-8. VoiceBridge shares claim number.
-9. Insurer says photos and repair estimate are missing.
-10. User asks for upload link/deadline.
-11. User switches to Spanish.
-12. VoiceBridge preserves claim context and continues in Spanish.
-13. Outcome card records status, missing docs, deadline, consent event, language switch, and memory update.
+## Agent 4: Voice Output And Latency Trace
 
-## Agent 1: Call Infrastructure Lead
+Owner: Codex
 
-Mission: make the LiveKit call work first.
+Why Codex:
 
-Tasks:
+- Voice provider selection and TTS latency events live in the Python agent.
+- The spec requires low-latency spoken responses, not just text.
 
-- Scaffold or adapt the LiveKit agent starter.
-- Create a browser-to-agent LiveKit room flow.
-- Ensure the agent joins reliably.
-- Ensure audio input and output work locally.
-- Add a controlled insurer participant path before real SIP.
-- Implement a minimal health screen: room connected, agent joined, mic active, audio output active.
-- Document exact run commands.
+Remaining work:
+
+- Verify selected TTS provider in a real `AgentSession`.
+- Emit `voice.spoken` after the agent speaks.
+- Include provider and `latency_ms`.
+- Prefer ElevenLabs first if stable.
+- Use MiniMax only if the adapter works in the live pipeline.
+- Keep browser/LiveKit fallback as last resort and label it honestly.
+- Add a small one-shot voice latency check that does not require the full call.
 
 Acceptance:
 
-- `pnpm dev` or equivalent starts frontend and agent.
-- Browser can start a call.
-- Agent speaks back.
-- A teammate can verify without touching sponsor integrations.
+- Agent audibly speaks in browser.
+- First response is acceptably fast for the demo.
+- Portal trace shows `voice.spoken` with provider and latency.
 
 Dependencies:
 
-- `.env` LiveKit keys.
+- Agent 1.
+- Existing `agent/voicebridge_agent/voice/*`.
 
 Blocked by:
 
-- Invalid LiveKit credentials.
-- Missing starter scaffold.
+- TTS provider auth failure.
+- LiveKit TTS plugin/API mismatch.
 
-Fallback:
+Validation:
 
-- Use local browser room only, no SIP.
-
-## Agent 2: Low-Latency Voice Lead
-
-Mission: make responses sound good and fast.
-
-Tasks:
-
-- Implement a TTS adapter interface.
-- Add ElevenLabs TTS using `ELEVENLABS_API_KEY` and `ELEVENLABS_VOICE_ID`.
-- Add MiniMax TTS adapter if API setup is confirmed.
-- Choose the fastest reliable TTS for the demo.
-- Support short response chunks so the agent starts speaking quickly.
-- Log response latency from final text to first audio byte.
-
-Acceptance:
-
-- Agent can speak with the provided voice.
-- Demo responses are not robotic or painfully slow.
-- If MiniMax is blocked, ElevenLabs fallback works.
-
-Dependencies:
-
-- ElevenLabs credentials.
-- MiniMax credentials and optional group ID.
-
-Blocked by:
-
-- Invalid voice provider credentials.
-
-Fallback:
-
-- Browser speech synthesis or LiveKit built-in voice path, but only as last resort.
-
-## Agent 3: Conversation Orchestrator Lead
-
-Mission: implement the deterministic demo conversation.
-
-Tasks:
-
-- Build the state machine for the insurance claim demo.
-- Track call state: intro, returning-claim confirmation, consent gate, missing-docs question, language switch, outcome.
-- Generate concise agent responses.
-- Keep all claim approval/denial logic out of scope.
-- Make the agent ask the user before sensitive disclosures.
-- Ensure the same state machine works whether the insurer is a scripted participant or SIP participant.
-
-Acceptance:
-
-- Demo flow completes predictably.
-- Agent never shares claim number before consent.
-- Agent never approves, denies, or interprets the claim.
-
-Dependencies:
-
-- Agent 1 call path.
-- Agent 2 voice path.
-
-Blocked by:
-
-- No stable call session.
-
-Fallback:
-
-- Text transcript mode while call infra is being fixed.
-
-## Agent 4: MOSS Memory Lead
-
-Mission: make returning-caller memory real.
-
-Tasks:
-
-- Create MOSS business knowledge and communication memory indexes.
-- Seed demo memory for Ayush and claim H-48291.
-- Implement `recall_customer_context`.
-- Implement `remember_call_event`.
-- Scope reads/writes by `tenant_id`, `user_id`, and `case_id`.
-- Store consent approvals, language switch event, final outcome, and correction preference.
-
-Acceptance:
-
-- Same user/case recalls prior claim context.
-- End-of-call outcome is written back to memory.
-- Frontend can show at least one retrieval and one memory write.
-
-Dependencies:
-
-- MOSS credentials.
-
-Blocked by:
-
-- Invalid MOSS credentials or index setup failure.
-
-Fallback:
-
-- Local JSON memory with the same interface, then swap to MOSS.
-
-## Agent 5: Consent And Guardrails Lead
-
-Mission: prevent unsafe disclosures and unsafe claims.
-
-Tasks:
-
-- Implement `check_sensitive_disclosure`.
-- Detect claim number, policy ID, address, date of loss, phone number, account number, payment details.
-- Pause before disclosure and wait for user approval.
-- Add hard guardrails:
-  - do not approve or deny claims
-  - do not give legal advice
-  - do not give financial advice
-  - do not move money or alter credentials
-- Add TrueFoundry adapter interface.
-- Use local guardrail fallback until TrueFoundry credentials are available.
-
-Acceptance:
-
-- Claim number request triggers consent UI.
-- Decline path does not reveal sensitive data.
-- Guardrail decision appears in frontend runtime trace.
-
-Dependencies:
-
-- Agent 3 orchestration.
-- TrueFoundry credentials for live gateway.
-
-Blocked by:
-
-- Missing TrueFoundry credentials.
-
-Fallback:
-
-- Local policy engine with the same request/response shape.
-
-## Agent 6: User Console Lead
-
-Mission: build the member-facing control surface.
-
-Tasks:
-
-- Create the user intent input.
-- Add quick action buttons for consent and choices.
-- Add language switch input.
-- Add correction buttons:
-  - less formal
-  - shorter
-  - slower
-  - ask me first next time
-- Show live user-side prompts and choices.
-- Keep layout fast and readable for demo.
-
-Acceptance:
-
-- User can drive the entire demo without speaking.
-- Consent prompts are obvious.
-- Language switch is a visible action.
-- Correction action writes to memory through Agent 4.
-
-Dependencies:
-
-- Agent 3 state machine.
-- Agent 4 memory interface.
-
-Blocked by:
-
-- No shared event protocol.
-
-Fallback:
-
-- Manual buttons wired to local state.
-
-## Agent 7: Insurer Portal And Runtime Trace Lead
-
-Mission: make the business value and sponsor usage visible.
-
-Tasks:
-
-- Build the business dashboard for Northstar Insurance.
-- Show active call state.
-- Show sponsor runtime trace:
-  - LiveKit connected
-  - MOSS retrieval
-  - UnSiloed document used
-  - TrueFoundry guardrail decision
-  - Qwen language switch
-  - MiniMax/ElevenLabs voice output
-  - AWS audit saved or local audit fallback
-- Show outcome card.
-- Show consent events and audit log.
-
-Acceptance:
-
-- A judge can see why this is B2B2C.
-- A judge can see all sponsors doing real work or faithful stubs.
-- Outcome card is clear enough to screenshot.
-
-Dependencies:
-
-- Agents 3, 4, 5, 8, 9.
-
-Blocked by:
-
-- No event stream.
-
-Fallback:
-
-- Static runtime trace that updates from demo state events.
-
-## Agent 8: Document Parsing And Business Knowledge Lead
-
-Mission: make UnSiloed useful, not decorative.
-
-Tasks:
-
-- Create a demo claim notice / document request PDF or text fixture.
-- Parse it with UnSiloed if credentials work.
-- Extract missing documents, upload instructions, deadline language, escalation instructions.
-- Index parsed output into MOSS business knowledge.
-- Implement `search_business_knowledge`.
-- Display parsed source in runtime trace.
-
-Acceptance:
-
-- Agent answer about upload/deadline can cite parsed business knowledge.
-- If UnSiloed is unavailable, a pre-parsed fixture uses the same shape.
-
-Dependencies:
-
-- UnSiloed API key.
-- MOSS business knowledge index.
-
-Blocked by:
-
-- API or document upload issues.
-
-Fallback:
-
-- Pre-parsed fixture committed to repo.
-
-## Agent 9: Multilingual/Qwen Lead
-
-Mission: make the mid-call language switch convincing.
-
-Tasks:
-
-- Add model adapter for Qwen via Alibaba Model Studio / DashScope.
-- Confirm which credential path works:
-  - DashScope API key
-  - Alibaba access key pair
-- Implement language switch detection.
-- Preserve `case_id`, claim context, and consent state across language change.
-- Generate user-side Spanish summary.
-- Keep insurer-side response in English unless user explicitly wants otherwise.
-
-Acceptance:
-
-- User switches to Spanish mid-call.
-- Agent keeps same claim context.
-- User gets Spanish explanation.
-- Outcome card records language switch.
-
-Dependencies:
-
-- Qwen/Alibaba credentials.
-- Agent 3 call state.
-
-Blocked by:
-
-- Missing DashScope API key or unresolved Alibaba auth path.
-
-Fallback:
-
-- Local language detection for Spanish trigger plus templated Spanish response.
-
-## Agent 10: Deployment, QA, And Demo Captain
-
-Mission: make the demo reliable.
-
-Tasks:
-
-- Own the runbook.
-- Own `.env.example` without secrets.
-- Verify all required environment variables are either present or intentionally stubbed.
-- Create smoke tests:
-  - call starts
-  - agent joins
-  - TTS speaks
-  - MOSS recall works
-  - consent gate blocks claim number
-  - language switch works
-  - outcome card appears
-- Add a one-command dev startup if possible.
-- Prepare AWS deployment only after local demo is stable.
-- Run the final 90-second demo script repeatedly.
-
-Acceptance:
-
-- Any teammate can run the local demo from the runbook.
-- Demo works three times in a row.
-- Missing optional integrations are clearly marked as stubbed.
-
-Dependencies:
-
-- All agents.
-
-Blocked by:
-
-- P0 call path not working.
-
-Fallback:
-
-- Use local-only demo with controlled room and faithful sponsor stubs.
-
-## Parallel Coordination Rules
-
-1. Agent 1 owns P0. Everyone else must provide mocks until the call works.
-2. Agents 2, 3, 4, and 6 can start in parallel with mocked LiveKit events.
-3. Agents 5, 8, and 9 should expose adapter interfaces early and fill real APIs later.
-4. Agent 7 consumes events from everyone else and should not block core logic.
-5. Agent 10 continuously verifies the integrated demo.
-
-## Event Contract
-
-All agents should emit simple JSON events:
-
-```json
-{
-  "type": "consent.requested",
-  "tenant_id": "northstar_insurance",
-  "user_id": "ayush_demo",
-  "case_id": "home_claim_H-48291",
-  "timestamp": "2026-06-07T00:00:00Z",
-  "payload": {}
-}
+```powershell
+cd agent
+uv run pytest tests/test_voice.py
 ```
 
-Required event types:
+And a live browser audio check.
 
-- `call.started`
-- `call.agent_joined`
-- `call.audio_ready`
-- `memory.recalled`
-- `knowledge.retrieved`
-- `consent.requested`
-- `consent.approved`
-- `guardrail.checked`
-- `language.switched`
-- `voice.spoken`
-- `memory.written`
-- `outcome.created`
-- `audit.saved`
+## Agent 5: Sponsor Truth And Live/Stub Adapters
 
-## First 2-Hour Build Order
+Owner: Codex
 
-1. Agent 1: prove browser LiveKit call and agent join.
-2. Agent 2: make any low-latency voice response work.
-3. Agent 3: implement scripted claim flow in text first, then voice.
-4. Agent 6: wire user console to scripted flow.
-5. Agent 4: add MOSS recall/write once flow works locally.
-6. Agent 5: add consent gate before claim number.
-7. Agent 7: add runtime trace and outcome card.
-8. Agent 9: add language switch.
-9. Agent 8: add UnSiloed parsed docs / fixture.
-10. Agent 10: run full demo three times and record issues.
+Why Codex:
 
-## Done Means
+- This is backend adapter and honesty work.
+- The spec allows faithful stubs, but the runtime trace must not overclaim.
 
-The project is not done when the spec is complete. It is done when the call works.
+Remaining work:
 
-Minimum finish line:
+- Audit every sponsor status shown in `/portal`.
+- Make event payloads honest:
+  - local MOSS-shaped memory should say `source: "local"` unless live MOSS is actually called
+  - local guardrail should say `enforced_by: "local"` unless TrueFoundry is actually called
+  - local language detection should say `detected_by: "local"` unless Qwen is actually called
+  - local audit should say `store: "local"` unless AWS is actually used
+- If time permits, wire one live API beyond LiveKit:
+  - MOSS live memory, or
+  - UnSiloed parse, or
+  - Qwen via DashScope if key becomes available
+- Keep the portal badge distinction: Live, Stub, Off.
 
-- LiveKit call starts.
-- Agent joins.
-- Agent speaks.
-- Claim context is recalled.
-- Claim number is not shared until approved.
-- User switches language.
-- Agent preserves context.
-- Outcome card is produced.
-- Demo can be repeated reliably.
+Acceptance:
+
+- No mock or fallback path claims a sponsor is live when it is local.
+- Portal still makes sponsor usage visible.
+- Missing Qwen, TrueFoundry, and AWS credentials are clearly marked.
+
+Current credential truth:
+
+- LiveKit present.
+- MOSS env values present.
+- UnSiloed API key present.
+- ElevenLabs present.
+- MiniMax present.
+- `DASHSCOPE_API_KEY` missing.
+- TrueFoundry gateway credentials missing.
+- AWS access credentials missing.
+
+Dependencies:
+
+- `web/src/lib/env.ts`.
+- `web/src/lib/sponsors.ts`.
+- `brain/voicebridge_brain/*`.
+
+Blocked by:
+
+- Missing live provider credentials.
+
+Validation:
+
+```powershell
+pnpm build
+pnpm typecheck
+```
+
+## Agent 6: Portal Live Runtime Trace
+
+Owner: Claude Code
+
+Why Claude:
+
+- This is the business-facing demo surface.
+- Judges need to see the trace, consent log, and outcome at a glance.
+
+Remaining work:
+
+- Verify `/portal` connects as observer.
+- Ensure `/portal` receives live data-channel events.
+- Add a clear Live/Mock indicator.
+- Add empty/error states for:
+  - no room
+  - no events
+  - token failure
+  - disconnected observer
+- Make sponsor trace visually obvious and accurate.
+- Ensure outcome card is readable in one screenshot.
+
+Acceptance:
+
+- `/portal` shows live events from the same room as `/console`.
+- Runtime trace updates without manual refresh.
+- Mock replay is available but visibly labeled.
+
+Dependencies:
+
+- Agent 3 live event bridge.
+- Existing portal components.
+
+Blocked by:
+
+- No live data-channel events.
+
+Validation:
+
+```powershell
+pnpm dev
+```
+
+Then verify `/portal` in browser while `/console` demo runs.
+
+## Agent 7: Demo Controls And Failure Recovery UI
+
+Owner: Claude Code
+
+Why Claude:
+
+- This is presentation control and UX safety.
+- During a hackathon demo, the team needs fast recovery buttons.
+
+Remaining work:
+
+- Add a small demo control surface visible to the operator:
+  - Start live call
+  - Start mock replay
+  - Reset event log
+  - Reconnect
+  - Copy room name
+  - Open portal
+- Make all controls keyboard/mouse friendly.
+- Add clear labels for "Live call" vs "Mock replay".
+- Prevent duplicate mock/live streams from mixing silently.
+- Add a "demo ready" checklist in the UI or portal header.
+
+Acceptance:
+
+- Operator can recover from a failed room connection without restarting the app.
+- Operator can choose live or mock intentionally.
+- Demo never silently falls back to mock while claiming live.
+
+Dependencies:
+
+- Agent 2 console connection state.
+- Agent 6 portal trace state.
+
+Blocked by:
+
+- Missing UI state separation between mock and live modes.
+
+Validation:
+
+Manual browser check on `/console` and `/portal`.
+
+## Agent 8: Browser QA, Responsiveness, And Screenshot Readiness
+
+Owner: Claude Code
+
+Why Claude:
+
+- This is UI polish and judge-facing reliability.
+- It needs browser inspection, responsive checks, and visual cleanup.
+
+Remaining work:
+
+- Verify `/console` and `/portal` at desktop and mobile widths.
+- Ensure no text overflow or overlapping controls.
+- Ensure consent prompt is prominent.
+- Ensure runtime trace is readable when events accumulate.
+- Ensure portal screenshot communicates:
+  - B2B2C buyer
+  - memory retrieval
+  - consent gate
+  - language switch
+  - outcome
+- Fix any layout issues caused by live event volume.
+
+Acceptance:
+
+- Desktop demo view is screenshot-ready.
+- Mobile view is not broken.
+- Text fits inside controls and cards.
+
+Dependencies:
+
+- Agents 2, 6, and 7.
+
+Blocked by:
+
+- Final live event shape changes.
+
+Validation:
+
+Browser screenshots at `/console` and `/portal`.
+
+## Agent 9: Demo Script, Pitch Flow, And Submission Assets
+
+Owner: Claude Code
+
+Why Claude:
+
+- This is front-of-house execution.
+- It turns the working product into a two-minute judge demo.
+
+Remaining work:
+
+- Create the final operator script:
+  - open console
+  - start call
+  - show memory recall
+  - approve claim number
+  - switch to Spanish
+  - show outcome in portal
+- Add a short visible "What judges should notice" note outside the app, not inside the main UI.
+- Capture final screenshots if needed.
+- Keep claims honest:
+  - LiveKit live
+  - local fallback where applicable
+  - no fake live sponsor claims
+- Prepare fallback script if main live agent fails.
+
+Acceptance:
+
+- Team can demo in under two minutes.
+- Fallback mock path is ready and clearly described.
+- Pitch matches actual runtime evidence.
+
+Dependencies:
+
+- Agents 1 through 8.
+
+Blocked by:
+
+- No stable live call path.
+
+Validation:
+
+Run the final script twice without editing code.
+
+## Agent 10: End-To-End QA And Release Gate
+
+Owner: Codex
+
+Why Codex:
+
+- This is system verification, process cleanup, and command evidence.
+- It must distinguish "works in mocks" from "works live."
+
+Remaining work:
+
+- Create or document a single final run sequence.
+- Run all validation:
+  - `pnpm build`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm brain:test`
+  - `pnpm brain:lint`
+  - `cd agent; uv run pytest`
+  - `cd agent; uv run ruff check .`
+- Run the live demo three times.
+- Record exact failures if any.
+- Check for orphaned Python/node processes after demo.
+- Confirm git working tree status and commit/push if remote permits.
+
+Acceptance:
+
+- Final report says one of:
+  - complete and live-verified
+  - complete with explicit local stubs
+  - not complete, with exact blocker
+- No background agent workers are left running unintentionally.
+- Git status is understood before handoff.
+
+Dependencies:
+
+- All other agents.
+
+Blocked by:
+
+- Live call path not working.
+
+Validation:
+
+```powershell
+pnpm build
+pnpm lint
+pnpm typecheck
+pnpm brain:test
+pnpm brain:lint
+cd agent; uv run pytest
+cd agent; uv run ruff check .
+```
+
+## Dependency Map
+
+Hard dependencies:
+
+- Agent 2 depends on Agent 1 for real live-call proof.
+- Agent 3 depends on Agent 1 for publishing live brain events.
+- Agent 4 depends on Agent 1 and Agent 3 for real `voice.spoken` trace events.
+- Agent 6 depends on Agent 3 for live runtime trace.
+- Agent 7 depends on Agents 2 and 6 for accurate mode controls.
+- Agent 8 depends on Agents 2, 6, and 7 for final UI shape.
+- Agent 9 depends on Agents 1 through 8 for final script.
+- Agent 10 depends on all agents for the final release gate.
+
+Can start immediately in parallel:
+
+- Agent 1 can debug `pnpm agent:dev`.
+- Agent 2 can verify `/console` token/mic/live UI state.
+- Agent 3 can wire orchestrator events to the agent data channel.
+- Agent 4 can test voice provider selection and latency event emission.
+- Agent 5 can fix sponsor truth and live/stub labels.
+- Agent 6 can verify portal observer state using existing mock/live hooks.
+- Agent 7 can add demo controls.
+- Agent 8 can do responsive QA against existing pages.
+- Agent 9 can draft the operator script with placeholders.
+- Agent 10 can keep the validation checklist running.
+
+## Immediate Order
+
+First 30 minutes:
+
+1. Codex Agent 1: make `pnpm agent:dev` visibly start or produce a concrete error.
+2. Claude Agent 2: verify `/console` can fetch a token and connect to room.
+3. Codex Agent 3: publish brain events into the same LiveKit data-channel topic.
+4. Claude Agent 6: verify `/portal` receives live data-channel events.
+
+Next 60 minutes:
+
+5. Codex Agent 4: prove audible agent response and `voice.spoken`.
+6. Codex Agent 5: fix live/stub sponsor honesty.
+7. Claude Agent 7: add demo controls and mode labels.
+8. Claude Agent 8: browser QA and layout fixes.
+
+Final 30 minutes:
+
+9. Claude Agent 9: run final pitch script and capture screenshots.
+10. Codex Agent 10: run full validation and final three-run gate.
+
+## What Not To Do
+
+- Do not add real SIP until browser-to-agent LiveKit works.
+- Do not claim Qwen is live unless `DASHSCOPE_API_KEY` works.
+- Do not claim TrueFoundry is live unless gateway credentials work.
+- Do not claim AWS persistence unless an AWS write actually succeeds.
+- Do not let mock replay silently stand in for a live call.
+- Do not share or print secrets while debugging.
