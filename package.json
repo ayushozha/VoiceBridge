@@ -21,6 +21,8 @@
     "brain:test": "cd brain && uv run pytest",
     "brain:lint": "cd brain && uv run ruff check .",
     "agent:smoke": "cd agent && uv run python -m voicebridge_agent.agent smoke",
+    "agent:live-check": "cd agent && uv run python -m voicebridge_agent.live_readiness",
+    "agent:live-check:strict": "cd agent && uv run python -m voicebridge_agent.live_readiness --strict",
     "agent:dev": "cd agent && uv run python -m voicebridge_agent.agent dev",
     "agent:console": "cd agent && uv run python -m voicebridge_agent.agent console",
     "agent:sip:check": "cd agent && uv run python -m voicebridge_agent.transport.sip check",

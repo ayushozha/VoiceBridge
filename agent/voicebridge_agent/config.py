@@ -64,6 +64,27 @@ class Config:
     qwen_model: str
     nvidia_api_key: str | None
 
+    # Sponsor memory, docs, governance, and audit paths
+    moss_project_id: str | None
+    moss_project_key: str | None
+    moss_api_base_url: str | None
+    moss_index_name: str
+    moss_memory_index_name: str
+    unsiloed_api_key: str | None
+    unsiloed_parse_url: str | None
+    truefoundry_api_key: str | None
+    truefoundry_gateway_base_url: str | None
+    truefoundry_guardrail_config_id: str | None
+    truefoundry_model: str | None
+    aws_region: str
+    aws_access_key_id: str | None
+    aws_secret_access_key: str | None
+    aws_s3_bucket: str | None
+    aws_audit_table: str | None
+    commandos_payments_api_url: str | None
+    commandos_payments_api_key: str | None
+    commandos_payments_dataset_id: str | None
+
     @property
     def has_livekit(self) -> bool:
         return bool(self.livekit_url and self.livekit_api_key and self.livekit_api_secret)
@@ -88,6 +109,30 @@ class Config:
     def has_nvidia(self) -> bool:
         return bool(self.nvidia_api_key)
 
+    @property
+    def has_moss_credentials(self) -> bool:
+        return bool(self.moss_project_id and self.moss_project_key)
+
+    @property
+    def has_moss_live(self) -> bool:
+        return bool(self.has_moss_credentials and self.moss_api_base_url)
+
+    @property
+    def has_unsiloed(self) -> bool:
+        return bool(self.unsiloed_api_key and self.unsiloed_parse_url)
+
+    @property
+    def has_truefoundry(self) -> bool:
+        return bool(self.truefoundry_api_key and self.truefoundry_gateway_base_url)
+
+    @property
+    def has_aws(self) -> bool:
+        return bool(self.aws_access_key_id and self.aws_secret_access_key)
+
+    @property
+    def has_payment_telemetry(self) -> bool:
+        return bool(self.commandos_payments_api_url)
+
 
 def load_config() -> Config:
     return Config(
@@ -104,9 +149,31 @@ def load_config() -> Config:
         elevenlabs_voice_id=_val("ELEVENLABS_VOICE_ID"),
         minimax_api_key=_val("MINIMAX_API_KEY"),
         minimax_group_id=_val("MINIMAX_GROUP_ID"),
-        minimax_model=os.getenv("MINIMAX_TTS_MODEL", "speech-02-hd"),
+        minimax_model=os.getenv("MINIMAX_TTS_MODEL", "speech-2.8-hd"),
         qwen_base_url=_val("QWEN_BASE_URL"),
         qwen_api_key=_val("DASHSCOPE_API_KEY"),
         qwen_model=os.getenv("QWEN_MODEL", "qwen-plus"),
         nvidia_api_key=_val("NVIDIA_NEMOTRON_VOICECHAT_API_KEY"),
+        moss_project_id=_val("MOSS_PROJECT_ID"),
+        moss_project_key=_val("MOSS_PROJECT_KEY"),
+        moss_api_base_url=_val("MOSS_API_BASE_URL"),
+        moss_index_name=os.getenv("MOSS_INDEX_NAME", "voicebridge_business_knowledge"),
+        moss_memory_index_name=os.getenv(
+            "MOSS_MEMORY_INDEX_NAME",
+            "voicebridge_communication_memory",
+        ),
+        unsiloed_api_key=_val("UNSILOED_API_KEY"),
+        unsiloed_parse_url=_val("UNSILOED_PARSE_URL"),
+        truefoundry_api_key=_val("TRUEFOUNDRY_API_KEY"),
+        truefoundry_gateway_base_url=_val("TRUEFOUNDRY_GATEWAY_BASE_URL"),
+        truefoundry_guardrail_config_id=_val("TRUEFOUNDRY_GUARDRAIL_CONFIG_ID"),
+        truefoundry_model=_val("TRUEFOUNDRY_MODEL"),
+        aws_region=os.getenv("AWS_REGION", "us-west-2"),
+        aws_access_key_id=_val("AWS_ACCESS_KEY_ID"),
+        aws_secret_access_key=_val("AWS_SECRET_ACCESS_KEY"),
+        aws_s3_bucket=_val("AWS_S3_BUCKET"),
+        aws_audit_table=_val("AWS_AUDIT_TABLE"),
+        commandos_payments_api_url=_val("COMMANDOS_PAYMENTS_API_URL"),
+        commandos_payments_api_key=_val("COMMANDOS_PAYMENTS_API_KEY"),
+        commandos_payments_dataset_id=_val("COMMANDOS_PAYMENTS_DATASET_ID"),
     )

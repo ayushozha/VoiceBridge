@@ -80,20 +80,27 @@ demo flow in UI state.
 
 ### Memory And Self-Improving RAG
 
-- `memory.recalled`: MOSS/local prior-incident summary.
+- `memory.recalled`: MOSS prior-incident summary.
 - `similar_incident.recalled`: similarity score, prior failure, bad action,
   successful mitigation, owner, provenance, and ghost overlay hint.
 - `memory.written`: final incident learning saved back to the memory harness.
 
-For the hackathon, the self-improving harness is a local MOSS-shaped store in
-`brain/voicebridge_brain/commandos.py`. Redis is not required yet. Add Redis,
-Upstash Vector, RedisVL, LanceDB, or sqlite-vec only when persistent vector
-recall across backend processes is required.
+The live demo must not call the local MOSS-shaped store a working sponsor
+integration. `pnpm agent:live-check:strict` must pass before the judge demo; if
+MOSS is unavailable, the demo is blocked until `MOSS_API_BASE_URL` or sponsor
+SDK/API docs are provided.
+
+Redis is not required yet. Add Redis, Upstash Vector, RedisVL, LanceDB, or
+sqlite-vec only when persistent vector recall across backend processes is
+required and MOSS is not the chosen memory path.
 
 ### Docs And Runbook Retrieval
 
-- `knowledge.retrieved`: UnSiloed/local runbook matches, score, source
-  document, provider, and integration mode.
+- `knowledge.retrieved`: UnSiloed runbook matches, score, source document,
+  provider, and integration mode.
+
+The live demo must parse a real document through UnSiloed, not only read the
+fixture in `brain/voicebridge_brain/fixtures/`.
 
 ### Guardrails And Approvals
 
@@ -163,6 +170,8 @@ pnpm brain:lint
 cd agent; uv run pytest
 cd agent; uv run ruff check .
 pnpm agent:smoke
+pnpm agent:live-check
+pnpm agent:live-check:strict
 ```
 
 Contracts:
@@ -182,8 +191,12 @@ pnpm typecheck
 - Backend changes must preserve a frontend-connectable event stream.
 - Every generated event should include replay metadata: `event_id`, `sequence`,
   `turn_id`, and `correlation_id`.
-- Every sponsor-facing event must label whether the path is `live`, `stub`, or
-  `unavailable`.
+- Every sponsor-facing event must be backed by a real provider call for the live
+  demo. `stub` and `local` modes are allowed only for offline unit tests and
+  must fail strict readiness.
+- The 3D incident map requires `COMMANDOS_PAYMENTS_API_URL` returning real
+  recent failure telemetry as JSON with a non-empty `hotspots` or `failures`
+  array. Without that endpoint, the map is a replay and the demo is blocked.
 - Do not claim infrastructure actions were executed unless a real adapter did
   it.
 - Do not build frontend UI in backend tasks.

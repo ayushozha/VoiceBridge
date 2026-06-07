@@ -89,8 +89,9 @@ pnpm dev
 pnpm agent:dev
 ```
 
-Credentials already live in `.env` for LiveKit, MOSS, UnSiloed, MiniMax, ElevenLabs,
-and Alibaba/Qwen. TrueFoundry and AWS are stubbed (see below).
+Credentials live in `.env`, but key presence is not considered demo-ready. Run
+`pnpm agent:live-check` to make real provider calls and
+`pnpm agent:live-check:strict` before any judged live demo.
 
 ## The shared contract
 
@@ -110,18 +111,20 @@ three. See [`contracts/README.md`](./contracts/README.md).
 
 ## Sponsor integration status
 
-Honest per spec § Sponsor Integration Bar. "Live" = real API key present in `.env`.
+Honest per spec. "Live" means the backend made a real provider call in the latest
+`pnpm agent:live-check` run; key presence alone is not enough.
 
 | Sponsor | Role | Status |
 | --- | --- | --- |
-| **LiveKit** | Real-time call transport | Live (cloud project) |
-| **MOSS** | Memory + retrieval | Live (project key) |
-| **UnSiloed** | Document parsing | Live (API key) |
-| **ElevenLabs** | Low-latency TTS (default) | Live (key + voice id) |
-| **MiniMax** | Low-latency TTS (sponsor path) | Live key; local adapter¹ |
-| **Qwen / Alibaba** | Multilingual reasoning | Access-key present; DashScope key TBD |
-| **TrueFoundry** | Model gateway + guardrails | **Stub** — local guardrail, gateway interface kept |
-| **AWS** | Hosting + audit store | **Stub** — local audit fallback, deploy path documented |
+| **LiveKit** | Real-time call transport | Verified live: room API reachable |
+| **MOSS** | Memory + retrieval | Blocked: credentials present, missing `MOSS_API_BASE_URL` or SDK/API docs |
+| **UnSiloed** | Document parsing | Verified live: tiny PDF parse succeeded |
+| **ElevenLabs** | Low-latency TTS (default) | Verified live: real PCM audio synthesized |
+| **MiniMax** | Low-latency TTS (sponsor path) | Blocked: API returns insufficient balance |
+| **Qwen / Alibaba** | Multilingual reasoning | Blocked: missing `DASHSCOPE_API_KEY` |
+| **TrueFoundry** | Model gateway + guardrails | Blocked: missing gateway credentials/base URL/model |
+| **AWS** | Hosting + audit store | Blocked: missing AWS access key/secret |
+| **CommandOS telemetry** | Real payment-failure map | Blocked: missing `COMMANDOS_PAYMENTS_API_URL` |
 
 ¹ The first-party `livekit-plugins-minimax` pins `livekit-agents==1.2.9`, which conflicts
 with the latest 1.5.x core. To stay on the latest stack, MiniMax is implemented as a local
@@ -141,6 +144,8 @@ pnpm --filter @voicebridge/web typecheck     # web typechecks against the contra
 pnpm --filter @voicebridge/web lint          # eslint (flat config)
 pnpm --filter @voicebridge/web build         # next build
 cd agent; uv run ruff check .                # agent lint (after uv sync)
+pnpm agent:live-check                        # real provider readiness
+pnpm agent:live-check:strict                 # required before live judging
 ```
 
 ## Contributing invariants

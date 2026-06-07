@@ -13,7 +13,7 @@ so we implement MiniMax ourselves against the current core. This adapter:
   so the core wraps it with its sentence-stream pacer for incremental synthesis).
 - Logs latency from final text to first audio byte into ``TTSResult.latency_ms``.
 
-Model defaults to ``MINIMAX_TTS_MODEL`` (``speech-02-hd``). ``MINIMAX_GROUP_ID`` is
+Model defaults to ``MINIMAX_TTS_MODEL`` (``speech-2.8-hd``). ``MINIMAX_GROUP_ID`` is
 optional on the international endpoint; when present it is sent as ``?GroupId=``.
 """
 
@@ -116,6 +116,27 @@ def _iter_sse_audio(line: bytes) -> bytes | None:
         return None
 
 
+def _minimax_error_from_line(line: bytes) -> str | None:
+    """Return a MiniMax base_resp error from an SSE or JSON line, if present."""
+    text = line.strip()
+    if text.startswith(b"data:"):
+        text = text[len(b"data:") :].strip()
+    if not text or text == b"[DONE]":
+        return None
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    base_resp = parsed.get("base_resp")
+    if not isinstance(base_resp, dict):
+        return None
+    status_code = base_resp.get("status_code")
+    if status_code in {None, 0}:
+        return None
+    status_msg = base_resp.get("status_msg") or "MiniMax request failed"
+    return f"MiniMax error {status_code}: {status_msg}"
+
+
 class MiniMaxAdapter:
     """Sponsor voice path. Live pipeline via a local tts.TTS; HTTP one-shot for latency."""
 
@@ -158,12 +179,17 @@ class MiniMaxAdapter:
             ) as resp:
                 resp.raise_for_status()
                 async for raw_line in resp.content:
+                    if error := _minimax_error_from_line(raw_line):
+                        raise RuntimeError(error)
                     pcm = _iter_sse_audio(raw_line)
                     if pcm is None:
                         continue
                     if latency_ms is None:
                         latency_ms = (time.perf_counter() - start) * 1000.0
                     chunks.append(pcm)
+
+        if not chunks:
+            raise RuntimeError("MiniMax returned no audio chunks.")
 
         return TTSResult(
             text=text,
@@ -248,13 +274,29 @@ def _build_livekit_tts(params: _MiniMaxParams) -> lk_tts.TTS:
                         num_channels=NUM_CHANNELS,
                         mime_type="audio/pcm",
                     )
+                    chunks = 0
                     async for raw_line in resp.content:
+                        if error := _minimax_error_from_line(raw_line):
+                            raise APIStatusError(
+                                message=error,
+                                status_code=resp.status,
+                                request_id=None,
+                                body=None,
+                            )
                         pcm = _iter_sse_audio(raw_line)
                         if pcm is None:
                             continue
+                        chunks += 1
                         output_emitter.push(pcm)
                         # PCM is gapless; flush each chunk so audio plays as it lands.
                         output_emitter.flush()
+                    if chunks == 0:
+                        raise APIStatusError(
+                            message="MiniMax returned no audio chunks.",
+                            status_code=resp.status,
+                            request_id=None,
+                            body=None,
+                        )
             except asyncio.TimeoutError:
                 raise APITimeoutError() from None
             except aiohttp.ClientResponseError as e:

@@ -23,6 +23,7 @@ dependencies = [
   # Demo brain (local path dependency) publishes memory, consent, knowledge,
   # language, outcome, and audit events into the live call stream.
   "voicebridge-brain",
+  "boto3>=1.43.24",
 ]
 
 [project.optional-dependencies]

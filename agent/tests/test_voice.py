@@ -44,11 +44,30 @@ _BASE = Config(
     elevenlabs_voice_id=None,
     minimax_api_key=None,
     minimax_group_id=None,
-    minimax_model="speech-02-hd",
+    minimax_model="speech-2.8-hd",
     qwen_base_url=None,
     qwen_api_key=None,
     qwen_model="qwen-plus",
     nvidia_api_key=None,
+    moss_project_id=None,
+    moss_project_key=None,
+    moss_api_base_url=None,
+    moss_index_name="voicebridge_business_knowledge",
+    moss_memory_index_name="voicebridge_communication_memory",
+    unsiloed_api_key=None,
+    unsiloed_parse_url=None,
+    truefoundry_api_key=None,
+    truefoundry_gateway_base_url=None,
+    truefoundry_guardrail_config_id=None,
+    truefoundry_model=None,
+    aws_region="us-west-2",
+    aws_access_key_id=None,
+    aws_secret_access_key=None,
+    aws_s3_bucket=None,
+    aws_audit_table=None,
+    commandos_payments_api_url=None,
+    commandos_payments_api_key=None,
+    commandos_payments_dataset_id=None,
 )
 
 
@@ -241,6 +260,18 @@ def test_iter_sse_audio_ignores_non_data_and_done_lines():
     assert _iter_sse_audio(b"data: not-json\n") is None
 
 
+async def test_minimax_synthesize_raises_on_provider_error(patch_session):
+    from voicebridge_agent.voice import minimax as mm
+
+    patch_session(
+        mm,
+        [b'{"base_resp":{"status_code":1008,"status_msg":"insufficient balance"}}'],
+    )
+
+    with pytest.raises(RuntimeError, match="insufficient balance"):
+        await MiniMaxAdapter(CFG_MINIMAX_ONLY).synthesize("hi")
+
+
 # ---------------------------------------------------------------------------
 # synthesize() — mocked network, latency + audio accumulation
 # ---------------------------------------------------------------------------
@@ -263,7 +294,7 @@ async def test_minimax_synthesize_accumulates_pcm_and_logs_latency(patch_session
     assert res.language == "es"
     assert res.latency_ms is not None and res.latency_ms >= 0
     # Request was shaped correctly without a real network call.
-    assert fake.last_json["model"] == "speech-02-hd"
+    assert fake.last_json["model"] == "speech-2.8-hd"
     assert fake.last_json["stream"] is True
     assert fake.last_json["audio_setting"]["format"] == "pcm"
     assert fake.last_headers["Authorization"] == "Bearer mm-key"
@@ -272,11 +303,11 @@ async def test_minimax_synthesize_accumulates_pcm_and_logs_latency(patch_session
 async def test_minimax_endpoint_appends_group_id_only_when_present(patch_session):
     from voicebridge_agent.voice import minimax as mm
 
-    fake = patch_session(mm, [_sse_audio_line(b"\x00", status=2)])
+    fake = patch_session(mm, [_sse_audio_line(b"\x00")])
     await MiniMaxAdapter(cfg(minimax_api_key="mm-key", minimax_group_id="grp-9")).synthesize("hi")
     assert fake.last_url.endswith("?GroupId=grp-9")
 
-    fake2 = patch_session(mm, [_sse_audio_line(b"\x00", status=2)])
+    fake2 = patch_session(mm, [_sse_audio_line(b"\x00")])
     await MiniMaxAdapter(CFG_MINIMAX_ONLY).synthesize("hi")
     assert "GroupId" not in (fake2.last_url or "")
 
@@ -330,6 +361,6 @@ async def test_run_demo_uses_minimax_when_only_minimax_configured(patch_session)
     from voicebridge_agent.voice import minimax as mm
 
     # Same canned audio for every line; just assert the provider routing.
-    patch_session(mm, [_sse_audio_line(b"\x01", status=2)])
+    patch_session(mm, [_sse_audio_line(b"\x01")])
     results = await run_demo(CFG_MINIMAX_ONLY)
     assert all(r.provider == "minimax" for r in results)
