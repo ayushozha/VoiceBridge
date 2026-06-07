@@ -29,6 +29,7 @@ import {
   type VoiceBridgeEvent,
 } from "@voicebridge/contracts";
 import { useVoiceBridgeEvents } from "@/lib/useVoiceBridgeEvents";
+import { CallProvider, useMaybeCall } from "@/components/CallProvider";
 import { RoomFallback } from "@/components/console/RoomFallback";
 import { useMockPlayer } from "@/components/console/useMockPlayer";
 import { IntentInput } from "@/components/console/IntentInput";
@@ -42,8 +43,15 @@ import { OutcomeCard } from "@/components/console/OutcomeCard";
 import { ConsoleButton, Pill } from "@/components/console/ui";
 
 export default function ConsolePage() {
+  // Agent 1's CallProvider supplies the live RoomContext (member role, mic on).
+  // RoomFallback stays as a safety net: it guarantees a RoomContext for
+  // useVoiceBridgeEvents even if the provider is ever removed, and passes through
+  // when CallProvider is present. Liveness is derived inside ConsoleInner from the
+  // actual connection status, not from "a RoomContext exists".
   return (
-    <RoomFallback>{(live) => <ConsoleInner live={live} />}</RoomFallback>
+    <CallProvider role="user" enableMicOnConnect>
+      <RoomFallback>{() => <ConsoleInner />}</RoomFallback>
+    </CallProvider>
   );
 }
 
@@ -110,10 +118,15 @@ function appliedCorrections(events: VoiceBridgeEvent[]): Set<CorrectionKind> {
   return set;
 }
 
-function ConsoleInner({ live }: { live: boolean }) {
+function ConsoleInner() {
   const { events, publish, inject } = useVoiceBridgeEvents();
   const player = useMockPlayer(events, inject);
   const [callStarted, setCallStarted] = useState(false);
+  // Present when wrapped in <CallProvider>; null otherwise. "live" means an
+  // actual room connection, so the standalone mock stays available until the
+  // member connects.
+  const call = useMaybeCall();
+  const live = call?.status === "connected";
 
   // On a disconnected (mock) room, publishData rejects. The hook records the
   // event locally before awaiting the network, so the UI is already updated;
@@ -137,9 +150,13 @@ function ConsoleInner({ live }: { live: boolean }) {
   const handleIntent = useCallback(
     (text: string, lang: LanguageCode) => {
       setCallStarted(true);
+      // In live mode, connecting on first intent joins the room + enables the
+      // mic so the agent hears the member. connect() is idempotent. In mock
+      // mode `call` is null and we just publish locally.
+      if (call && call.status === "idle") void call.connect();
       safePublish("user.intent", { text, language: lang });
     },
-    [safePublish],
+    [safePublish, call],
   );
 
   const handleChoice = useCallback(
@@ -210,9 +227,40 @@ function ConsoleInner({ live }: { live: boolean }) {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Pill tone={live ? "approve" : "muted"}>
-            {live ? "live call" : "mock demo"}
-          </Pill>
+          {call ? (
+            <>
+              <Pill
+                tone={
+                  call.status === "connected"
+                    ? "approve"
+                    : call.status === "error"
+                      ? "warn"
+                      : call.status === "connecting"
+                        ? "warn"
+                        : "muted"
+                }
+              >
+                {call.status === "connected"
+                  ? "live call"
+                  : call.status === "connecting"
+                    ? "connecting…"
+                    : call.status === "error"
+                      ? "connection error"
+                      : "ready"}
+              </Pill>
+              {call.status === "connected" ? (
+                <ConsoleButton tone="neutral" onClick={() => void call.disconnect()}>
+                  End call
+                </ConsoleButton>
+              ) : (
+                <ConsoleButton tone="accent" onClick={() => void call.connect()}>
+                  Connect
+                </ConsoleButton>
+              )}
+            </>
+          ) : (
+            <Pill tone="muted">mock demo</Pill>
+          )}
           <Pill tone="accent">{language === "es" ? "Español" : "English"}</Pill>
         </div>
       </header>

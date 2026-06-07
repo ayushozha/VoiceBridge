@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type VoiceBridgeEvent } from "@voicebridge/contracts";
 import { useVoiceBridgeEvents } from "@/lib/useVoiceBridgeEvents";
+import { useMaybeCall } from "@/components/CallProvider";
 import { DEMO_SCRIPT } from "@/lib/portalMock";
 import { CallStatePanel } from "./CallStatePanel";
 import { SponsorBadges, type IntegrationModes } from "./SponsorBadges";
@@ -27,17 +28,13 @@ import { TranscriptPanel } from "./TranscriptPanel";
 
 type ReplayState = "idle" | "playing" | "done";
 
-export function PortalDashboard({
-  modes,
-  liveRoom,
-}: {
-  modes: IntegrationModes;
-  /** True when wrapped in a connected LiveKit room (observer). */
-  liveRoom: boolean;
-}) {
+export function PortalDashboard({ modes }: { modes: IntegrationModes }) {
   const { events, inject } = useVoiceBridgeEvents();
   const [replay, setReplay] = useState<ReplayState>("idle");
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  // Connected as an observer via Agent 1's CallProvider? (null in mock-only).
+  const call = useMaybeCall();
+  const liveRoom = call?.status === "connected";
 
   // Once any event arrives over the live channel, treat the call as live.
   const liveEventSeen = liveRoom && events.length > 0 && replay === "idle";

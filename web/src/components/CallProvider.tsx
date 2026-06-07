@@ -52,6 +52,15 @@ export function useCall(): CallContextValue {
   return ctx;
 }
 
+/**
+ * Like {@link useCall} but returns null outside a <CallProvider> instead of
+ * throwing — mirrors LiveKit's `useMaybeRoomContext`. Lets a component offer a
+ * live connect affordance when wrapped, and silently run mock-only when not.
+ */
+export function useMaybeCall(): CallContextValue | null {
+  return useContext(CallContext);
+}
+
 export interface CallProviderProps {
   children: React.ReactNode;
   /** Participant role. `user` publishes mic; `observer` (portal) watches only. */
