@@ -17,6 +17,7 @@ Design notes:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -50,11 +51,16 @@ class IncidentEngines:
     and the incident memory backend so repeated tool calls stay coherent.
     """
 
-    def __init__(self, room: rtc.Room, scope: MemoryScope) -> None:
+    def __init__(
+        self,
+        room: rtc.Room,
+        scope: MemoryScope,
+        memory: Any | None = None,
+    ) -> None:
         self._room = room
         self._scope = scope
         self._sequence = 0
-        self._memory = SelfImprovingIncidentMemory()
+        self._memory = memory or SelfImprovingIncidentMemory()
         # Track what has been built so dashboard/report reflect real progress.
         self._fired: set[str] = set()
         self._last_similar: dict[str, Any] | None = None
@@ -84,6 +90,56 @@ class IncidentEngines:
         self._fired.add(type)
         logger.info("engine emitted %s (seq=%s)", type, self._sequence)
         return event
+
+    async def bootstrap_memory(self) -> str:
+        """Load prior incident memory as part of the core mic loop."""
+        await self._emit(
+            "scene.state",
+            _scene("thinking", "prior_incident_overlay", "Loading MOSS incident memory"),
+            turn_id="memory_bootstrap",
+            mode="live",
+        )
+        return await self.recall_similar_incidents()
+
+    async def _recall_similar(self, query: str) -> dict[str, Any]:
+        """Recall from MOSS when available, with local fallback on provider errors."""
+        try:
+            return await asyncio.to_thread(
+                self._memory.recall_similar_incident,
+                query,
+                "Texas",
+                "payment_gateway",
+            )
+        except Exception as exc:  # noqa: BLE001 - fallback keeps the live call alive
+            if getattr(self._memory, "source", None) != "moss":
+                raise
+            logger.warning("MOSS recall failed; falling back to local memory: %s", exc)
+            self._memory = SelfImprovingIncidentMemory()
+            return await asyncio.to_thread(
+                self._memory.recall_similar_incident,
+                query,
+                "Texas",
+                "payment_gateway",
+            )
+
+    async def _remember_incident_learning(self, report: dict[str, Any]) -> dict[str, Any]:
+        """Write final incident learning through MOSS, falling back locally if needed."""
+        try:
+            return await asyncio.to_thread(
+                self._memory.remember_incident_learning,
+                self._scope,
+                report,
+            )
+        except Exception as exc:  # noqa: BLE001 - writeback must not kill the call
+            if getattr(self._memory, "source", None) != "moss":
+                raise
+            logger.warning("MOSS write failed; falling back to local memory: %s", exc)
+            self._memory = SelfImprovingIncidentMemory()
+            return await asyncio.to_thread(
+                self._memory.remember_incident_learning,
+                self._scope,
+                report,
+            )
 
     # ── Lifecycle ──────────────────────────────────────────────────────────
 
@@ -150,10 +206,8 @@ class IncidentEngines:
 
     async def recall_similar_incidents(self) -> str:
         """Recall the prior matching incident from memory (memory + similar)."""
-        similar = self._memory.recall_similar_incident(
+        similar = await self._recall_similar(
             "why are payments failing have we seen this before",
-            "Texas",
-            "payment_gateway",
         )
         self._last_similar = similar
         mode = "live" if similar["source"] == "moss" else "stub"
@@ -262,7 +316,7 @@ class IncidentEngines:
         await self._emit("report.created", report, turn_id="dashboard")
         await self._emit(
             "memory.written",
-            self._memory.remember_incident_learning(self._scope, report),
+            await self._remember_incident_learning(report),
             turn_id="dashboard",
         )
         await self._emit(

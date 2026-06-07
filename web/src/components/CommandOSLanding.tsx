@@ -745,9 +745,6 @@ export function CommandOSLanding() {
               >
                 Voice OS
               </button>
-              <Link href="/portal" style={{ textDecoration: "none", color: "#8ea2c8", transition: "color 0.25s" }}>
-                Command Center
-              </Link>
             </div>
           </nav>
 
@@ -971,25 +968,6 @@ export function CommandOSLanding() {
                 </span>
                 Voice OS
               </button>
-              <Link
-                href="/portal"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  fontWeight: 600,
-                  fontSize: 16,
-                  color: "#eaf0ff",
-                  textDecoration: "none",
-                  padding: "16px 26px",
-                  borderRadius: 999,
-                  background: "rgba(22,32,58,0.5)",
-                  boxShadow: "inset 0 0 0 1px rgba(140,170,255,0.2), 0 10px 30px rgba(0,0,0,0.4)",
-                  backdropFilter: "blur(14px)",
-                  transition: "transform 0.25s",
-                }}
-              >
-                Command Center
-              </Link>
             </div>
           </div>
 

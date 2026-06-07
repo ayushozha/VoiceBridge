@@ -28,6 +28,7 @@ check.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import sys
@@ -315,6 +316,33 @@ def _build_tts(selection: VoiceSelection) -> TTSBase | str:
     return inference.TTS(model=INFERENCE_TTS_MODEL)
 
 
+def _build_incident_memory(cfg: Config) -> Any:
+    """Use live MOSS incident memory when credentials exist; otherwise local fallback."""
+    if not cfg.has_moss_credentials:
+        return None
+    from voicebridge_brain.moss import MossConfig, MossIncidentMemoryAdapter
+
+    logger.info("MOSS: live incident memory adapter configured")
+    return MossIncidentMemoryAdapter(
+        MossConfig(
+            project_id=cfg.moss_project_id or "",
+            project_key=cfg.moss_project_key or "",
+            memory_index_name=cfg.moss_memory_index_name,
+            model_id=cfg.moss_model_id,
+        )
+    )
+
+
+async def _bootstrap_core_memory(engines: IncidentEngines) -> None:
+    """Run MOSS recall inside the live room without letting it break the call."""
+    try:
+        await asyncio.wait_for(engines.bootstrap_memory(), timeout=20)
+    except asyncio.TimeoutError:
+        logger.warning("MOSS memory bootstrap timed out; continuing live voice session")
+    except Exception:  # noqa: BLE001 - provider failure must not stop the mic loop
+        logger.exception("MOSS memory bootstrap failed; continuing live voice session")
+
+
 async def _publish_brain_events(room: Any, scope: MemoryScope) -> list[Event]:
     """Run the deterministic brain and publish its events into the live room."""
     from voicebridge_brain.commandos import CommandOSOrchestrator
@@ -427,7 +455,8 @@ async def entrypoint(ctx: JobContext) -> None:
     # Bind the incident engines to the agent so its function tools can publish
     # HUD events into this room as the operator speaks.
     agent = VoiceBridgeAgent()
-    agent.bind_engines(IncidentEngines(ctx.room, scope))
+    engines = IncidentEngines(ctx.room, scope, memory=_build_incident_memory(cfg))
+    agent.bind_engines(engines)
 
     await session.start(
         agent=agent,
@@ -457,6 +486,7 @@ async def entrypoint(ctx: JobContext) -> None:
         "events emitted call.started call.agent_joined call.audio_ready "
         f"room={ctx.room.name}"
     )
+    memory_bootstrap_task = asyncio.create_task(_bootstrap_core_memory(engines))
 
     # Default: fully conversational. The operator's speech drives the HUD via the
     # agent's function tools, which publish incident events as it talks. Greet once
@@ -484,6 +514,7 @@ async def entrypoint(ctx: JobContext) -> None:
                 language=str(event.payload.get("language") or DEMO_LANGUAGES[0]),
                 provider=voice_selection.provider,
             )
+        await memory_bootstrap_task
         return
 
     await _say_and_publish_voice(
@@ -497,6 +528,7 @@ async def entrypoint(ctx: JobContext) -> None:
         language=DEMO_LANGUAGES[0],
         provider=voice_selection.provider,
     )
+    await memory_bootstrap_task
 
 
 def main() -> None:
